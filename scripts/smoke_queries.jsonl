@@ -1,0 +1,5 @@
+{"query_id": "smoke_q1", "tenant_id": "smoke_smoke", "domain": "d1", "query": "What services do you offer?"}
+{"query_id": "smoke_q2", "tenant_id": "smoke_smoke", "domain": "d1", "query": "How do I get a quote?"}
+{"query_id": "smoke_q3", "tenant_id": "smoke_smoke", "domain": "d2", "query": "What is your contact info?"}
+{"query_id": "smoke_q4", "tenant_id": "smoke_smoke", "domain": "d2", "query": "Do you ship nationwide?"}
+{"query_id": "smoke_q5", "tenant_id": "smoke_smoke", "domain": "d2", "query": "What are your hours?"}

@@ -1,0 +1,127 @@
+{"query_id": "cc_q1", "tenant_id": "coast2coast", "domain": "example.com", "query": "What services do you offer?"}
+{"query_id": "cc_q2", "tenant_id": "coast2coast", "domain": "example.com", "query": "How do I get a quote?"}
+{"query_id": "cc_q3", "tenant_id": "coast2coast", "domain": "example.com", "query": "What is your contact info?"}
+{"query_id": "cc_q4", "tenant_id": "coast2coast", "domain": "example.com", "query": "Do you ship nationwide?"}
+{"query_id": "cc_q5", "tenant_id": "coast2coast", "domain": "example.com", "query": "What are your hours?"}
+{"query_id": "q001", "tenant_id": "mover_a", "domain": "services", "query": "What moving services do you offer?"}
+{"query_id": "q002", "tenant_id": "mover_a", "domain": "pricing", "query": "How much does a local move cost?"}
+{"query_id": "q003", "tenant_id": "mover_a", "domain": "faq", "query": "Do you provide packing materials?"}
+{"query_id": "q004", "tenant_id": "mover_a", "domain": "coverage_area", "query": "What states do you serve?"}
+{"query_id": "q005", "tenant_id": "mover_a", "domain": "policies", "query": "What is your cancellation policy?"}
+{"query_id": "q006", "tenant_id": "mover_a", "domain": "claims_damage", "query": "How do I file a damage claim?"}
+{"query_id": "q007", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "I need a quote for moving from NYC to LA"}
+{"query_id": "q008", "tenant_id": "mover_a", "domain": "contact_support", "query": "What is your customer service phone number?"}
+{"query_id": "q009", "tenant_id": "mover_a", "domain": "services", "query": "Do you offer full-service packing where movers pack everything for me including fragile items like dishes and artwork?"}
+{"query_id": "q010", "tenant_id": "mover_a", "domain": "pricing", "query": "What factors affect the final price of a long-distance move?"}
+{"query_id": "q011", "tenant_id": "mover_b", "domain": "faq", "query": "How far in advance should I book?"}
+{"query_id": "q012", "tenant_id": "mover_b", "domain": "coverage_area", "query": "Do you move to Alaska and Hawaii?"}
+{"query_id": "q013", "tenant_id": "mover_b", "domain": "policies", "query": "Can I get a refund if I cancel?"}
+{"query_id": "q014", "tenant_id": "mover_b", "domain": "claims_damage", "query": "My furniture was scratched during the move. What do I do?"}
+{"query_id": "q015", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "Book a move for next Friday"}
+{"query_id": "q016", "tenant_id": "mover_b", "domain": "contact_support", "query": "How do I reach someone about my delayed shipment?"}
+{"query_id": "q017", "tenant_id": "mover_a", "domain": "services", "query": "Moving help"}
+{"query_id": "q018", "tenant_id": "mover_a", "domain": "pricing", "query": "Price for 3 bedroom house move 500 miles"}
+{"query_id": "q019", "tenant_id": "mover_a", "domain": "faq", "query": "Do I need to be present on both pickup and delivery days?"}
+{"query_id": "q020", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Are you available in Texas?"}
+{"query_id": "q021", "tenant_id": "mover_a", "domain": "policies", "query": "What happens if I need to change my move date?"}
+{"query_id": "q022", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Claims process for lost items"}
+{"query_id": "q023", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "I want to schedule an in-home estimate for next week"}
+{"query_id": "q024", "tenant_id": "mover_a", "domain": "contact_support", "query": "Email for complaints"}
+{"query_id": "q025", "tenant_id": "mover_b", "domain": "services", "query": "Do you handle piano or pool table moves?"}
+{"query_id": "q026", "tenant_id": "mover_b", "domain": "pricing", "query": "Is the quote binding or can the price change?"}
+{"query_id": "q027", "tenant_id": "mover_b", "domain": "faq", "query": "What should I do before the movers arrive?"}
+{"query_id": "q028", "tenant_id": "mover_b", "domain": "coverage_area", "query": "International moves to Canada?"}
+{"query_id": "q029", "tenant_id": "mover_b", "domain": "policies", "query": "Deposit requirements"}
+{"query_id": "q030", "tenant_id": "mover_b", "domain": "claims_damage", "query": "Valuation coverage vs basic liability"}
+{"query_id": "q031", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Get a quote"}
+{"query_id": "q032", "tenant_id": "mover_a", "domain": "contact_support", "query": "Chat support hours"}
+{"query_id": "q033", "tenant_id": "mover_a", "domain": "services", "query": "Storage options during transit"}
+{"query_id": "q034", "tenant_id": "mover_a", "domain": "pricing", "query": "Extra charges for stairs or elevators?"}
+{"query_id": "q035", "tenant_id": "mover_a", "domain": "faq", "query": "What items are prohibited from the truck?"}
+{"query_id": "q036", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Service area"}
+{"query_id": "q037", "tenant_id": "mover_a", "domain": "policies", "query": "Payment terms and when is payment due?"}
+{"query_id": "q038", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Time limit to report damage"}
+{"query_id": "q039", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Moving from Chicago to Denver 2 bedroom apartment"}
+{"query_id": "q040", "tenant_id": "mover_a", "domain": "contact_support", "query": "Who do I call if the truck is late?"}
+{"query_id": "q041", "tenant_id": "mover_b", "domain": "services", "query": "Commercial relocation services for offices"}
+{"query_id": "q042", "tenant_id": "mover_b", "domain": "pricing", "query": "Cost per pound for long distance"}
+{"query_id": "q043", "tenant_id": "mover_b", "domain": "faq", "query": "How are my belongings protected during the move?"}
+{"query_id": "q044", "tenant_id": "mover_b", "domain": "coverage_area", "query": "Do you cover the Northeast?"}
+{"query_id": "q045", "tenant_id": "mover_b", "domain": "policies", "query": "Third-party or broker policy"}
+{"query_id": "q046", "tenant_id": "mover_b", "domain": "claims_damage", "query": "Antique damaged in transit reimbursement"}
+{"query_id": "q047", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "Reserve a spot for July 15 move"}
+{"query_id": "q048", "tenant_id": "mover_b", "domain": "contact_support", "query": "Track my shipment"}
+{"query_id": "q049", "tenant_id": "mover_a", "domain": "services", "query": "Labor only loading help"}
+{"query_id": "q050", "tenant_id": "mover_a", "domain": "pricing", "query": "Flat rate vs hourly"}
+{"query_id": "q051", "tenant_id": "mover_a", "domain": "faq", "query": "Do movers need to disassemble beds?"}
+{"query_id": "q052", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Moving to Florida from California"}
+{"query_id": "q053", "tenant_id": "mover_a", "domain": "policies", "query": "Accessorial fees explanation"}
+{"query_id": "q054", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Documentation needed for claim"}
+{"query_id": "q055", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Virtual survey instead of in-home"}
+{"query_id": "q056", "tenant_id": "mover_a", "domain": "contact_support", "query": "Department for billing questions"}
+{"query_id": "q057", "tenant_id": "mover_b", "domain": "services", "query": "Vehicle shipping"}
+{"query_id": "q058", "tenant_id": "mover_b", "domain": "pricing", "query": "Discounts for military or seniors?"}
+{"query_id": "q059", "tenant_id": "mover_b", "domain": "faq", "query": "Pets during the move"}
+{"query_id": "q060", "tenant_id": "mover_b", "domain": "coverage_area", "query": "Rural area delivery"}
+{"query_id": "q061", "tenant_id": "mover_b", "domain": "policies", "query": "Peak season surcharges"}
+{"query_id": "q062", "tenant_id": "mover_b", "domain": "claims_damage", "query": "High-value item protection"}
+{"query_id": "q063", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "Last minute move tomorrow"}
+{"query_id": "q064", "tenant_id": "mover_b", "domain": "contact_support", "query": "Update my contact info"}
+{"query_id": "q065", "tenant_id": "mover_a", "domain": "services", "query": "Can you move a hot tub?"}
+{"query_id": "q066", "tenant_id": "mover_a", "domain": "pricing", "query": "Binding vs non-binding estimate"}
+{"query_id": "q067", "tenant_id": "mover_a", "domain": "faq", "query": "Do I tip the movers?"}
+{"query_id": "q068", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Pacific Northwest coverage"}
+{"query_id": "q069", "tenant_id": "mover_a", "domain": "policies", "query": "Weather delay policy"}
+{"query_id": "q070", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Broken TV who pays"}
+{"query_id": "q071", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Studio apartment local move estimate"}
+{"query_id": "q072", "tenant_id": "mover_a", "domain": "contact_support", "query": "Corporate accounts contact"}
+{"query_id": "q073", "tenant_id": "mover_b", "domain": "services", "query": "Specialty items like art or wine collection"}
+{"query_id": "q074", "tenant_id": "mover_b", "domain": "pricing", "query": "Why did my final bill exceed the estimate?"}
+{"query_id": "q075", "tenant_id": "mover_b", "domain": "faq", "query": "Can I pack my own boxes?"}
+{"query_id": "q076", "tenant_id": "mover_b", "domain": "coverage_area", "query": "Puerto Rico moves"}
+{"query_id": "q077", "tenant_id": "mover_b", "domain": "policies", "query": "Storage fees if delivery is delayed"}
+{"query_id": "q078", "tenant_id": "mover_b", "domain": "claims_damage", "query": "Missing boxes from shipment"}
+{"query_id": "q079", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "Cross-country move 4 bedroom"}
+{"query_id": "q080", "tenant_id": "mover_b", "domain": "contact_support", "query": "Dispute a charge"}
+{"query_id": "q081", "tenant_id": "mover_a", "domain": "services", "query": "Junk removal before move"}
+{"query_id": "q082", "tenant_id": "mover_a", "domain": "pricing", "query": "Packing add-on cost"}
+{"query_id": "q083", "tenant_id": "mover_a", "domain": "faq", "query": "What if I have more stuff than the estimate?"}
+{"query_id": "q084", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Serving Phoenix AZ"}
+{"query_id": "q085", "tenant_id": "mover_a", "domain": "policies", "query": "Freight charge calculation"}
+{"query_id": "q086", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Scratched hardwood floor who is liable"}
+{"query_id": "q087", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Same-day move available?"}
+{"query_id": "q088", "tenant_id": "mover_a", "domain": "contact_support", "query": "Spanish speaking support"}
+{"query_id": "q089", "tenant_id": "mover_b", "domain": "services", "query": "Furniture assembly after delivery"}
+{"query_id": "q090", "tenant_id": "mover_b", "domain": "pricing", "query": "Fuel surcharge details"}
+{"query_id": "q091", "tenant_id": "mover_b", "domain": "faq", "query": "Moving plants"}
+{"query_id": "q092", "tenant_id": "mover_b", "domain": "coverage_area", "query": "Midwest coverage including North Dakota"}
+{"query_id": "q093", "tenant_id": "mover_b", "domain": "policies", "query": "Guaranteed pickup and delivery dates"}
+{"query_id": "q094", "tenant_id": "mover_b", "domain": "claims_damage", "query": "Replacement value coverage"}
+{"query_id": "q095", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "Moving in 2 weeks need quick quote"}
+{"query_id": "q096", "tenant_id": "mover_b", "domain": "contact_support", "query": "Request a callback"}
+{"query_id": "q097", "tenant_id": "mover_a", "domain": "services", "query": "Moving"}
+{"query_id": "q098", "tenant_id": "mover_a", "domain": "pricing", "query": "Costs"}
+{"query_id": "q099", "tenant_id": "mover_a", "domain": "faq", "query": "How does this work?"}
+{"query_id": "q100", "tenant_id": "mover_a", "domain": "coverage_area", "query": "Where do you go?"}
+{"query_id": "q101", "tenant_id": "mover_a", "domain": "policies", "query": "Terms and conditions"}
+{"query_id": "q102", "tenant_id": "mover_a", "domain": "claims_damage", "query": "Something broke"}
+{"query_id": "q103", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "Book"}
+{"query_id": "q104", "tenant_id": "mover_a", "domain": "contact_support", "query": "Help"}
+{"query_id": "q105", "tenant_id": "mover_b", "domain": "services", "query": "I'm relocating my entire 5-bedroom house including a home gym with heavy equipment, wine cellar, and grand piano. What specialized services and crew size would you recommend?"}
+{"query_id": "q106", "tenant_id": "mover_b", "domain": "pricing", "query": "We're a startup moving our 20-person office from San Francisco to Austin. Need a detailed cost breakdown: labor, trucking, crating for IT equipment, and any corporate discount programs."}
+{"query_id": "q107", "tenant_id": "mover_a", "domain": "faq", "query": "My move involves a condo with a freight elevator and a 3-hour window. The new house has narrow doorways. What should I prepare and are there any restrictions I need to know about?"}
+{"query_id": "q108", "tenant_id": "mover_a", "domain": "coverage_area", "query": "We're a military family PCSing from Fort Bragg NC to Joint Base Lewis-McChord WA. Do you handle DITY moves and work with military logistics?"}
+{"query_id": "q109", "tenant_id": "mover_b", "domain": "policies", "query": "If I sign a binding estimate and then add 10 large items after the fact, how does that affect my contract? Can the mover refuse to load the extra items?"}
+{"query_id": "q110", "tenant_id": "mover_b", "domain": "claims_damage", "query": "The movers delivered my belongings 5 days late. During transit, water damage ruined $3000 worth of furniture. I had released value coverage. What are my options for reimbursement and can I also claim inconvenience?"}
+{"query_id": "q111", "tenant_id": "mover_a", "domain": "quotes_booking", "query": "I need to compare quotes for a 1,200 mile move. House has 2,400 sq ft. Prefer a company that can do a video survey and guarantee a firm price. Flexible on dates in August."}
+{"query_id": "q112", "tenant_id": "mover_a", "domain": "contact_support", "query": "I submitted a damage claim 3 weeks ago and haven't heard back. Claim number 88472. Who can escalate this?"}
+{"query_id": "q113", "tenant_id": "mover_b", "domain": "services", "query": "stuff", "notes": "ambiguous short query"}
+{"query_id": "q114", "tenant_id": "mover_b", "domain": "pricing", "query": "ballpark"}
+{"query_id": "q115", "tenant_id": "mover_a", "domain": "policies", "query": "release of liability form what does it mean"}
+{"query_id": "q116", "tenant_id": "mover_a", "domain": "claims_damage", "query": "60 cents per pound is that all I get"}
+{"query_id": "q117", "tenant_id": "mover_b", "domain": "quotes_booking", "query": "free estimate"}
+{"query_id": "q118", "tenant_id": "mover_b", "domain": "faq", "query": "Do I need insurance beyond what you offer?"}
+{"query_id": "q119", "tenant_id": "mover_a", "domain": "coverage_area", "query": "DC metro area"}
+{"query_id": "q120", "tenant_id": "mover_a", "domain": "contact_support", "query": "Office address for written complaints"}
+{"query_id": "q121", "tenant_id": "mover_b", "domain": "services", "query": "Appliances - do you disconnect and reconnect?"}
+{"query_id": "q122", "tenant_id": "mover_a", "domain": "policies", "query": "Held to load policy and what triggers extra charges"}

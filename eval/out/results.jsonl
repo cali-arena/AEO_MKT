@@ -1,0 +1,1 @@
+{"query_id": "t1", "tenant_id": "mover_a", "domain": "faq", "query": "test", "refused": true, "answer": "", "claims": [], "citations": null, "evidence_ids": [], "scores": null, "latency_ms": 2081.08, "run_meta": null}

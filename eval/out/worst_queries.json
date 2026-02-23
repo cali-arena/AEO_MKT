@@ -1,0 +1,15 @@
+{
+  "top_low_score_answered": [],
+  "top_refused": [
+    {
+      "citation_count": 0,
+      "domain": "faq",
+      "query": "test",
+      "query_id": "t1",
+      "refusal_reason": null,
+      "refused": true,
+      "top_score": null
+    }
+  ],
+  "top_zero_citation_answered": []
+}

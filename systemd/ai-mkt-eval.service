@@ -1,0 +1,14 @@
+[Unit]
+Description=AI-MKT eval nightly (harness runs, DB writes)
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=ai-mkt
+Group=ai-mkt
+WorkingDirectory=/opt/ai-mkt
+EnvironmentFile=-/etc/ai-mkt/cron.env
+ExecStart=/opt/ai-mkt/.venv/bin/python -m cron.eval_nightly
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-mkt-eval

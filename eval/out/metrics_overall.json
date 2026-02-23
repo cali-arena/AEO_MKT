@@ -1,0 +1,14 @@
+{
+  "answered_count": 0,
+  "answered_with_citations_count": 0,
+  "attribution_accuracy_proxy": 0.0,
+  "citation_rate": 0.0,
+  "composite_visibility_index": 0.0,
+  "hallucination_incidents": 0,
+  "hallucination_rate": 0.0,
+  "mention_answer_rate": 0.0,
+  "refused_count": 1,
+  "supported_claims": 0,
+  "total_claims": 0,
+  "total_queries": 1
+}

@@ -1,0 +1,10 @@
+{
+  "tenant_id": "coast2coast",
+  "allowed_domains": ["coasttocoastmovers.com", "quote.unitedglobalvanline.com"],
+  "quote_exclusions": {
+    "deny_path_prefixes": ["/quote", "/get-quote", "/get-a-quote", "/estimate", "/booking", "/flow", "/wizard"],
+    "deny_path_substrings": ["step-1", "step-2", "step1", "step2", "/step/"],
+    "deny_query_keys": ["session", "token", "leadid"],
+    "deny_query_prefixes": ["utm_"]
+  }
+}

@@ -1,0 +1,254 @@
+2026-02-22 14:39:42,335 WARNING cron.eval_nightly TENANTS env empty, nothing to run
+2026-02-22 14:39:57,728 INFO cron.eval_nightly eval_nightly start tenants=['mover_a']
+2026-02-22 14:40:03,285 WARNING cron.eval_nightly tenant=mover_a query=q001 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:07,356 WARNING cron.eval_nightly tenant=mover_a query=q002 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:11,403 WARNING cron.eval_nightly tenant=mover_a query=q003 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:15,465 WARNING cron.eval_nightly tenant=mover_a query=q004 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:19,528 WARNING cron.eval_nightly tenant=mover_a query=q005 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:23,619 WARNING cron.eval_nightly tenant=mover_a query=q006 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:27,670 WARNING cron.eval_nightly tenant=mover_a query=q007 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:31,752 WARNING cron.eval_nightly tenant=mover_a query=q008 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:35,837 WARNING cron.eval_nightly tenant=mover_a query=q009 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:39,914 WARNING cron.eval_nightly tenant=mover_a query=q010 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:43,994 WARNING cron.eval_nightly tenant=mover_a query=q017 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:48,096 WARNING cron.eval_nightly tenant=mover_a query=q018 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:52,187 WARNING cron.eval_nightly tenant=mover_a query=q019 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:40:56,274 WARNING cron.eval_nightly tenant=mover_a query=q020 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:00,369 WARNING cron.eval_nightly tenant=mover_a query=q021 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:04,440 WARNING cron.eval_nightly tenant=mover_a query=q022 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:08,524 WARNING cron.eval_nightly tenant=mover_a query=q023 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:12,586 WARNING cron.eval_nightly tenant=mover_a query=q024 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:16,668 WARNING cron.eval_nightly tenant=mover_a query=q031 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:20,744 WARNING cron.eval_nightly tenant=mover_a query=q032 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:24,819 WARNING cron.eval_nightly tenant=mover_a query=q033 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:28,921 WARNING cron.eval_nightly tenant=mover_a query=q034 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:32,999 WARNING cron.eval_nightly tenant=mover_a query=q035 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:37,087 WARNING cron.eval_nightly tenant=mover_a query=q036 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:41,150 WARNING cron.eval_nightly tenant=mover_a query=q037 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:45,212 WARNING cron.eval_nightly tenant=mover_a query=q038 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:49,294 WARNING cron.eval_nightly tenant=mover_a query=q039 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:53,414 WARNING cron.eval_nightly tenant=mover_a query=q040 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:41:57,507 WARNING cron.eval_nightly tenant=mover_a query=q049 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:01,546 WARNING cron.eval_nightly tenant=mover_a query=q050 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:05,653 WARNING cron.eval_nightly tenant=mover_a query=q051 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:09,724 WARNING cron.eval_nightly tenant=mover_a query=q052 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:13,794 WARNING cron.eval_nightly tenant=mover_a query=q053 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:17,865 WARNING cron.eval_nightly tenant=mover_a query=q054 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:21,925 WARNING cron.eval_nightly tenant=mover_a query=q055 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:26,008 WARNING cron.eval_nightly tenant=mover_a query=q056 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:30,076 WARNING cron.eval_nightly tenant=mover_a query=q065 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:34,150 WARNING cron.eval_nightly tenant=mover_a query=q066 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:38,246 WARNING cron.eval_nightly tenant=mover_a query=q067 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:42,300 WARNING cron.eval_nightly tenant=mover_a query=q068 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:46,379 WARNING cron.eval_nightly tenant=mover_a query=q069 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:50,462 WARNING cron.eval_nightly tenant=mover_a query=q070 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:54,550 WARNING cron.eval_nightly tenant=mover_a query=q071 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:42:58,629 WARNING cron.eval_nightly tenant=mover_a query=q072 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:02,683 WARNING cron.eval_nightly tenant=mover_a query=q081 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:06,766 WARNING cron.eval_nightly tenant=mover_a query=q082 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:10,833 WARNING cron.eval_nightly tenant=mover_a query=q083 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:14,932 WARNING cron.eval_nightly tenant=mover_a query=q084 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:19,049 WARNING cron.eval_nightly tenant=mover_a query=q085 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:23,128 WARNING cron.eval_nightly tenant=mover_a query=q086 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:27,226 WARNING cron.eval_nightly tenant=mover_a query=q087 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:31,337 WARNING cron.eval_nightly tenant=mover_a query=q088 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:35,425 WARNING cron.eval_nightly tenant=mover_a query=q097 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:39,495 WARNING cron.eval_nightly tenant=mover_a query=q098 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:43,549 WARNING cron.eval_nightly tenant=mover_a query=q099 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:47,647 WARNING cron.eval_nightly tenant=mover_a query=q100 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:51,714 WARNING cron.eval_nightly tenant=mover_a query=q101 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:55,841 WARNING cron.eval_nightly tenant=mover_a query=q102 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:43:59,931 WARNING cron.eval_nightly tenant=mover_a query=q103 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:03,995 WARNING cron.eval_nightly tenant=mover_a query=q104 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:08,086 WARNING cron.eval_nightly tenant=mover_a query=q107 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:12,149 WARNING cron.eval_nightly tenant=mover_a query=q108 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:16,210 WARNING cron.eval_nightly tenant=mover_a query=q111 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:20,277 WARNING cron.eval_nightly tenant=mover_a query=q112 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:24,361 WARNING cron.eval_nightly tenant=mover_a query=q115 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:28,431 WARNING cron.eval_nightly tenant=mover_a query=q116 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:32,477 WARNING cron.eval_nightly tenant=mover_a query=q119 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:36,565 WARNING cron.eval_nightly tenant=mover_a query=q120 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:40,649 WARNING cron.eval_nightly tenant=mover_a query=q122 error=HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /answer (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [WinError 10061] Nenhuma conexão pôde ser feita porque a máquina de destino as recusou ativamente"))
+2026-02-22 14:44:44,781 ERROR cron.eval_nightly tenant=mover_a DB write failed: (psycopg2.OperationalError) connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+Traceback (most recent call last):
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 146, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 3302, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 449, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1263, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\impl.py", line 179, in _do_get
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\impl.py", line 177, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 390, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 674, in __init__
+    self.__connect()
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 900, in __connect
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\create.py", line 643, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 621, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\psycopg2\__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+psycopg2.OperationalError: connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\lucas\AI_MKT\cron\eval_nightly.py", line 113, in _run_tenant
+    n = insert_eval_results_bulk(tenant_id, run.id, results_create) if results_create else 0
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AI_MKT\apps\api\services\repo.py", line 929, in create_eval_run
+    session.commit()
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\persistence.py", line 68, in save_obj
+    ) in _organize_states_for_save(base_mapper, states, uowtransaction):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\persistence.py", line 223, in _organize_states_for_save
+    for state, dict_, mapper, connection in _connections_for_states(
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1753, in _connections_for_states
+    connection = uowtransaction.transaction.connection(base_mapper)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in connection
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 1039, in connection
+    return self._connection_for_bind(bind, execution_options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 1175, in _connection_for_bind
+    conn = self._parent._connection_for_bind(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 2, in _connection_for_bind
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\orm\session.py", line 1189, in _connection_for_bind
+    conn = bind.connect()
+           ^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 3278, in connect
+    return self._connection_cls(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 148, in __init__
+    Connection._handle_dbapi_exception_noconnection(
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 2442, in _handle_dbapi_exception_noconnection
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 146, in __init__
+    self._dbapi_connection = engine.raw_connection()
+                             ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\base.py", line 3302, in raw_connection
+    return self.pool.connect()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 449, in connect
+    return _ConnectionFairy._checkout(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 1263, in _checkout
+    fairy = _ConnectionRecord.checkout(pool)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 712, in checkout
+    rec = pool._do_get()
+          ^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\impl.py", line 179, in _do_get
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\impl.py", line 177, in _do_get
+    return self._create_connection()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 390, in _create_connection
+    return _ConnectionRecord(self)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 674, in __init__
+    self.__connect()
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 900, in __connect
+    with util.safe_reraise():
+         ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\pool\base.py", line 896, in __connect
+    self.dbapi_connection = connection = pool._invoke_creator(self)
+                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\create.py", line 643, in connect
+    return dialect.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\sqlalchemy\engine\default.py", line 621, in connect
+    return self.loaded_dbapi.connect(*cargs, **cparams)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\lucas\AppData\Local\Programs\Python\Python312\Lib\site-packages\psycopg2\__init__.py", line 122, in connect
+    conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "localhost" (::1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused (0x0000274D/10061)
+	Is the server running on that host and accepting TCP/IP connections?
+
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-02-22 14:44:45,008 INFO cron.eval_nightly tenant=mover_a run_id=- count=69 refusal_rate=0.00 citation_rate=0.00
+2026-02-22 14:44:45,008 INFO cron.eval_nightly eval_nightly done
