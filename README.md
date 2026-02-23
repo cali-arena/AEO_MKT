@@ -2,6 +2,8 @@
 
 FastAPI backend for retrieve/answer, Next.js dashboard, and nightly eval/leakage jobs.
 
+**Repo root:** `infra/docker-compose.yml`, `Makefile`, `.env.example`, `README.md` (this file).
+
 ---
 
 ## 1. Local dev quickstart
@@ -46,9 +48,24 @@ docker compose -f infra/docker-compose.yml up -d
 
 ---
 
-## 2. Testing
+## 2. Schema authority (IMPORTANT)
 
-Tests use a separate `*_test` database to avoid polluting your dev DB. Set `DATABASE_URL_TEST` before running:
+**Use ONE approach for prod and tests. Do not mix.**
+
+| Authority | Command | When to use |
+|-----------|---------|-------------|
+| **Alembic (recommended)** | `alembic upgrade head` or `make migrate` | Default. Use for prod and tests. |
+| ensure_tables | `ensure_tables()` in code (tests only, via `SCHEMA_AUTHORITY=ensure_tables`) | Optional test-only path. |
+
+- **Production:** Always use Alembic. The API container runs `alembic upgrade head` on startup.
+- **Tests:** Default is Alembic. Set `DATABASE_TEST_URL` (e.g. `postgresql://.../ai_mkt_test`); schema reset uses the same authority.
+- Do not run Alembic and ensure_tables in the same session or on the same DB.
+
+---
+
+## 3. Testing
+
+Tests use a separate `*_test` database to avoid polluting your dev DB. Set `DATABASE_TEST_URL` (or `DATABASE_URL_TEST`) before running:
 
 ```bash
 export DATABASE_URL_TEST=postgresql://postgres:postgres@localhost:5432/ai_mkt_test
@@ -68,14 +85,14 @@ make test
 
 ---
 
-## 3. VPS setup (Docker + Compose)
+## 4. VPS setup (Docker + Compose)
 
-### 3.1 Prerequisites
+### 4.1 Prerequisites
 
 - Docker and Docker Compose v2
 - Domain pointing to VPS (for API, e.g. `api.yourvps.com`)
 
-### 3.2 Copy env and set secrets
+### 4.2 Copy env and set secrets
 
 ```bash
 cp .env.example .env
@@ -95,13 +112,13 @@ Edit `.env` and set:
 make up
 ```
 
-### 2.4 Run migrations
+### 4.4 Run migrations
 
 ```bash
 make migrate
 ```
 
-### 3.5 Verify
+### 4.5 Verify
 
 ```bash
 curl -s http://localhost:8000/health
@@ -109,7 +126,7 @@ curl -s http://localhost:8000/health
 
 Expected: `{"ok": true, "version": "dev", "time": "2025-01-15T12:00:00.000000+00:00"}` (version from GIT_SHA or "dev").
 
-### 3.6 Container status
+### 4.6 Container status
 
 ```bash
 make ps
@@ -130,7 +147,7 @@ In Vercel project settings → Environment Variables:
 
 Copy from `apps/dashboard/.env.example` if needed.
 
-### 4.2 Deploy dashboard
+### 5.2 Deploy dashboard
 
 ```bash
 cd apps/dashboard
@@ -148,9 +165,9 @@ Or connect the repo and set root directory to `apps/dashboard`.
 
 ---
 
-## 5. First tenant bootstrap
+## 6. First tenant bootstrap
 
-### 5.1 Policy
+### 6.1 Policy
 
 Ensure `policy/policy.json` has your tenant and `allowed_domains`:
 
@@ -162,7 +179,7 @@ Ensure `policy/policy.json` has your tenant and `allowed_domains`:
 }
 ```
 
-### 4.2 Ingest content
+### 6.2 Ingest content
 
 ```bash
 make ingest TENANT=coast2coast URL=https://coasttocoastmovers.com/services
@@ -178,7 +195,7 @@ Requires `eval/queries_seed.jsonl` with rows for your tenant, and API running.
 make eval TENANT=mover_a
 ```
 
-### 5.4 Open dashboard
+### 6.4 Open dashboard
 
 - Eval runs: `/eval` (or equivalent dashboard route)
 - Monitor events: `/monitor`
@@ -206,7 +223,7 @@ See **[cron/README.md](cron/README.md)** for:
 
 ---
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 ### CORS errors
 
