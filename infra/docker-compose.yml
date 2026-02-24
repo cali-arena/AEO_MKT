@@ -1,5 +1,7 @@
 # VPS backend: postgres, api. Redis optional (profile or env).
-# Run from project root: docker compose -f infra/docker-compose.yml up -d
+# Run from project root. REQUIRED: pass .env so POSTGRES_PASSWORD is set for both postgres and api.
+#   docker compose -f infra/docker-compose.yml --env-file .env up -d --build
+# If you ever ran without --env-file .env, do: down -v then up (with --env-file) so postgres re-inits with the correct password.
 
 networks:
   ai-mkt:

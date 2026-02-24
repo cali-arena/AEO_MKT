@@ -1,12 +1,11 @@
 # AI-MKT Makefile. Run from repo root.
-# Compose file: infra/docker-compose.yml
-
-COMPOSE := docker compose -f infra/docker-compose.yml
+# Compose file: infra/docker-compose.yml. .env required so POSTGRES_PASSWORD matches for postgres and api.
+COMPOSE := docker compose -f infra/docker-compose.yml --env-file .env
 
 .PHONY: up down serve logs migrate ingest eval leakage test ps smoke seed
 
 up:
-	$(COMPOSE) up -d
+	$(COMPOSE) up -d --build
 
 # Alias for up: start Postgres + API (API on localhost:8000). Use when make is available.
 # Windows without make: docker compose -f infra/docker-compose.yml up -d

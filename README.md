@@ -39,7 +39,7 @@ make serve   # or: make up
 Windows (PowerShell) without `make`:
 
 ```powershell
-docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml --env-file .env up -d --build
 ```
 
 - API: `http://localhost:8000`
@@ -94,23 +94,54 @@ make test
 
 ### 4.2 Copy env and set secrets
 
+On the VM (or locally for full stack):
+
 ```bash
+cd /root/AEO_MKT   # or your repo path
 cp .env.example .env
 ```
 
 Edit `.env` and set:
 
 - `POSTGRES_PASSWORD` – strong password (required in prod)
-- `CORS_ALLOW_ORIGINS` – your Vercel URL + localhost for dev, comma-separated, no trailing slash  
+- `POSTGRES_DB=ai_mkt` – database name (default; created automatically on first start)
+- `CORS_ALLOW_ORIGINS` – your Vercel URL + localhost, comma-separated, no trailing slash  
   Example: `https://your-app.vercel.app,http://localhost:3000`
-- `DATABASE_URL` – must use host `postgres` (Docker service name):  
+- `DATABASE_URL` – must use host `postgres` and the **same** password:  
   `postgresql://postgres:YOUR_PASSWORD@postgres:5432/ai_mkt`
 
-### 3.3 Start stack
+### 4.3 One-time: create database on VM
+
+The database **`ai_mkt`** is created automatically by the Postgres container when you first start the stack **with** `--env-file .env`. If the stack was ever started without it, re-create the volume so Postgres initializes with the correct password:
 
 ```bash
-make up
+cd /root/AEO_MKT
+docker compose -f infra/docker-compose.yml --env-file .env down -v
+docker compose -f infra/docker-compose.yml --env-file .env up -d --build
 ```
+
+- `down -v` removes the Postgres data volume so the next `up` runs init (creates `ai_mkt`, runs `init.sql` for pgvector, then Alembic runs migrations).
+- **Always** use `--env-file .env` for every compose command so `POSTGRES_PASSWORD` is set and you don’t see the “variable is not set” warning.
+
+### 4.4 Start stack and run commands (no warning)
+
+**Start:**
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env up -d --build
+```
+
+**Or use the helper script** (run from repo root; on VM run `chmod +x scripts/compose.sh` once):
+
+```bash
+./scripts/compose.sh up -d --build
+./scripts/compose.sh logs -f api
+./scripts/compose.sh ps
+```
+
+Using the script or always passing `--env-file .env` avoids the `POSTGRES_PASSWORD` warning and keeps the database and API in sync.
+
+**If you see `password authentication failed for user "postgres"`:** Run the one-time steps in 4.3 (`down -v` then `up` with `--env-file .env`).
 
 ### 4.4 Run migrations
 
@@ -230,6 +261,17 @@ See **[cron/README.md](cron/README.md)** for:
 - Ensure `CORS_ALLOW_ORIGINS` in `.env` includes your frontend origin exactly (no trailing slash).
 - Example: `https://your-app.vercel.app,http://localhost:3000`
 - Restart API after changing: `make down && make up`
+
+### Password authentication failed for user "postgres"
+
+- **Cause:** Postgres was first started without `--env-file .env` (or with empty `POSTGRES_PASSWORD`), so the data volume was initialized with a different password. The API uses the password from `.env`, so they don’t match.
+- **Fix:** Remove the Postgres volume and start again with `.env` (all DB data will be lost):
+  ```bash
+  cd /path/to/repo
+  docker compose -f infra/docker-compose.yml --env-file .env down -v
+  docker compose -f infra/docker-compose.yml --env-file .env up -d --build
+  ```
+- **Prevent:** Always run compose with `--env-file .env` so both postgres and api use the same `POSTGRES_PASSWORD`.
 
 ### DB connection refused
 
