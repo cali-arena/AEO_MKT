@@ -7,6 +7,7 @@ from apps.api.models.ec_embedding import ECEmbedding
 from apps.api.models.ec_version import ECVersion
 from apps.api.models.entity import Entity
 from apps.api.models.entity_mention import EntityMention
+from apps.api.models.eval_domain import EvalDomain
 from apps.api.models.eval_result import EvalResult
 from apps.api.models.eval_run import EvalRun
 from apps.api.models.evidence import Evidence
@@ -25,6 +26,7 @@ __all__ = [
     "ECVersion",
     "Entity",
     "EntityMention",
+    "EvalDomain",
     "EvalResult",
     "EvalRun",
     "Evidence",

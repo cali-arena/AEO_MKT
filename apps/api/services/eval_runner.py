@@ -11,28 +11,45 @@ import httpx
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 
 
-def _load_queries(tenant_id: str, domain: str | None) -> list[dict[str, Any]]:
-    """Load queries for tenant from eval/queries_seed.jsonl (and optional domain filter)."""
-    seed_path = PROJECT_ROOT / "eval" / "queries_seed.jsonl"
-    if not seed_path.exists():
-        return []
+# Default queries when user adds a domain that has no rows in queries_seed.jsonl (eval runs 24/7 for it)
+DEFAULT_QUERIES = [
+    {"query_id": "default_1", "query": "What services do you offer?", "domain": ""},
+    {"query_id": "default_2", "query": "How can I contact you?", "domain": ""},
+    {"query_id": "default_3", "query": "What are your hours?", "domain": ""},
+    {"query_id": "default_4", "query": "Do you have a FAQ or help page?", "domain": ""},
+    {"query_id": "default_5", "query": "Where are you located?", "domain": ""},
+]
 
-    rows: list[dict[str, Any]] = []
-    with open(seed_path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-                if str(obj.get("tenant_id", "")) != tenant_id:
+
+def _load_queries(tenant_id: str, domain: str | None) -> list[dict[str, Any]]:
+    """Load queries for tenant from eval/queries_seed.jsonl (and optional domain filter).
+    When domain is set and seed has no rows for it, return default queries for that domain."""
+    seed_path = PROJECT_ROOT / "eval" / "queries_seed.jsonl"
+    if seed_path.exists():
+        rows: list[dict[str, Any]] = []
+        with open(seed_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
                     continue
-                if domain is not None and str(obj.get("domain", "")) != domain:
+                try:
+                    obj = json.loads(line)
+                    if str(obj.get("tenant_id", "")) != tenant_id:
+                        continue
+                    if domain is not None and str(obj.get("domain", "")) != domain:
+                        continue
+                    rows.append(obj)
+                except json.JSONDecodeError:
                     continue
-                rows.append(obj)
-            except json.JSONDecodeError:
-                continue
-    return rows
+        if rows or domain is None:
+            return rows
+    # Domain was requested but no seed queries: use defaults so eval can run 24/7 for this domain
+    if domain:
+        return [
+            {**q, "tenant_id": tenant_id, "domain": domain}
+            for q in DEFAULT_QUERIES
+        ]
+    return []
 
 
 def _rec_to_eval_result_create(rec: dict[str, Any]) -> dict[str, Any] | None:

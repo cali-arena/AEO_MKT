@@ -12,6 +12,7 @@ from apps.api.schemas.eval_read import EvalResultRow, EvalRunListItem, EvalRunRe
 from apps.api.schemas.metrics import MetricsKPIs
 from apps.api.services.eval_runner import run_eval_sync
 from apps.api.services.repo import (
+    add_eval_domain,
     aggregate_kpis_for_run,
     get_eval_metrics_for_run,
     get_eval_results,
@@ -28,6 +29,12 @@ class EvalRunRequest(BaseModel):
     """Optional body for POST /eval/run: run eval for all queries or filter by domain."""
 
     domain: str | None = None
+
+
+class EvalDomainRequest(BaseModel):
+    """Body for POST /eval/domains: add domain and run eval (included in 24/7 cron)."""
+
+    domain: str
 
 
 class EvalRunResponse(BaseModel):
@@ -143,4 +150,26 @@ async def trigger_eval_run(
     return EvalRunResponse(
         status="started",
         message="Evaluation running in background. Refresh the page in a moment to see results.",
+    )
+
+
+@router.post("/domains", response_model=EvalRunResponse, status_code=202)
+async def add_domain_and_run_eval(
+    tenant_id: TenantId,
+    body: EvalDomainRequest,
+) -> EvalRunResponse:
+    """Add the domain for this tenant (so it is included in 24/7 eval) and start an eval run now.
+    Returns 202 immediately; refresh the Domains page to see results."""
+    domain = (body.domain or "").strip()
+    if not domain:
+        raise HTTPException(status_code=400, detail="domain is required")
+    added = add_eval_domain(tenant_id, domain)
+
+    def _run() -> None:
+        run_eval_sync(tenant_id, domain)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return EvalRunResponse(
+        status="started",
+        message=f"Domain {domain!r} {'added and ' if added else ''}evaluation started. It will run 24/7 on the server. Refresh the page in a moment.",
     )

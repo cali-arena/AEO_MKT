@@ -17,6 +17,7 @@ from apps.api.db import get_db
 from apps.api.models.ac_embedding import ACEmbedding
 from apps.api.models.ec_embedding import ECEmbedding
 from apps.api.models.entity import Entity
+from apps.api.models.eval_domain import EvalDomain
 from apps.api.models.eval_result import EvalResult
 from apps.api.models.eval_run import EvalRun
 from apps.api.models.evidence import Evidence
@@ -965,6 +966,31 @@ def insert_eval_results_bulk(
         session.add_all(objs)
         session.commit()
         return len(objs)
+
+
+def add_eval_domain(tenant_id: str | None, domain: str) -> bool:
+    """Add a domain for this tenant to be evaluated 24/7. Returns True if added, False if already exists."""
+    tenant_id = require_tenant_id(tenant_id)
+    domain = (domain or "").strip()
+    if not domain:
+        return False
+    with get_db() as session:
+        existing = session.scalars(
+            select(EvalDomain).where(tenant_where(EvalDomain, tenant_id), EvalDomain.domain == domain)
+        ).first()
+        if existing:
+            return False
+        session.add(EvalDomain(tenant_id=tenant_id, domain=domain))
+        session.commit()
+        return True
+
+
+def list_eval_domains(tenant_id: str | None) -> list[str]:
+    """Return list of domains added for this tenant (for 24/7 eval)."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = select(EvalDomain.domain).where(tenant_where(EvalDomain, tenant_id)).order_by(EvalDomain.domain)
+    with get_db() as session:
+        return list(session.scalars(stmt).all())
 
 
 def get_latest_eval_run(tenant_id: str | None) -> EvalRun | None:

@@ -88,6 +88,31 @@ export default function DomainsPage() {
     [tenantId, refresh]
   );
 
+  const addDomainAndRunEval = useCallback(
+    (domain: string) => {
+      if (!tenantId || !domain.trim()) return;
+      setRunLoading(true);
+      setRunMessage(null);
+      apiFetch<{ status: string; message: string }>("/eval/domains", {
+        method: "POST",
+        body: JSON.stringify({ domain: domain.trim() }),
+      })
+        .then((res) => {
+          setRunMessage({ type: "success", text: res.message });
+          setDomainInput("");
+          setTimeout(refresh, 2000);
+        })
+        .catch((err) => {
+          setRunMessage({
+            type: "error",
+            text: err instanceof Error ? err.message : "Failed to add domain and start evaluation",
+          });
+        })
+        .finally(() => setRunLoading(false));
+    },
+    [tenantId, refresh]
+  );
+
   if (!tenantId || loading) {
     return (
       <div>
@@ -153,11 +178,15 @@ export default function DomainsPage() {
             />
             <button
               type="button"
-              onClick={() => runEval(domainInput.trim() || null)}
+              onClick={() =>
+                domainInput.trim()
+                  ? addDomainAndRunEval(domainInput.trim())
+                  : runEval(null)
+              }
               disabled={runLoading}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {runLoading ? "Starting…" : "Run evaluation"}
+              {runLoading ? "Starting…" : domainInput.trim() ? "Add domain and run evaluation" : "Run evaluation"}
             </button>
           </div>
           {runMessage && (
@@ -165,7 +194,7 @@ export default function DomainsPage() {
               {runMessage.text}
             </p>
           )}
-          <p className="mt-4 text-xs text-gray-400">Eval also runs automatically 24/7 on the server.</p>
+          <p className="mt-4 text-xs text-gray-400">Added domains are evaluated automatically 24/7 on the server.</p>
           {runMessage?.type === "error" && runMessage.text.toLowerCase().includes("not found") && (
             <p className="mt-2 text-xs text-amber-700">
               If you see &quot;Not Found&quot;, ensure the API on the VM has the latest code and NEXT_PUBLIC_API_BASE in Vercel points to your tunnel URL.
@@ -220,7 +249,7 @@ export default function DomainsPage() {
       <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain to evaluate</p>
         <p className="mb-2 text-xs text-gray-500">
-          Type a domain below and click the button. The server will run an evaluation for that domain; after it finishes, refresh the page to see it in the table (if the server has queries for that domain).
+          Type a domain below and click the button. The domain will be saved and evaluation will run now and automatically 24/7. Refresh the page after a moment to see it in the table.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -233,7 +262,7 @@ export default function DomainsPage() {
           />
           <button
             type="button"
-            onClick={() => runEval(domainInput.trim() || null)}
+            onClick={() => addDomainAndRunEval(domainInput.trim())}
             disabled={runLoading || !domainInput.trim()}
             className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
