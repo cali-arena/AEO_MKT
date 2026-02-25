@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
-import type { EvalMetricsLatestOut } from "@/lib/types";
+import type { EvalMetricsLatestOut, EvalMetricsRates } from "@/lib/types";
+import { MetricBadge } from "@/components/ui/MetricBadge";
+import { DomainDrawer } from "@/components/domains/DomainDrawer";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
 function loadData(tenantId: string) {
   return apiFetch<EvalMetricsLatestOut>("/eval/metrics/latest");
@@ -116,7 +118,7 @@ export default function DomainsPage() {
   if (!tenantId || loading) {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold">Domains</h1>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Domains</h1>
         <div className="animate-pulse overflow-hidden rounded-lg border border-gray-200">
           <table className="min-w-full">
             <thead className="bg-gray-50">
@@ -205,13 +207,37 @@ export default function DomainsPage() {
     );
   }
 
-  const domains = Object.entries(data.per_domain).sort(([a], [b]) => a.localeCompare(b));
   const basePath = `/tenants/${encodeURIComponent(tenantId)}`;
+  const domainsSorted = useMemo(() => {
+    const entries = Object.entries(data.per_domain);
+    return entries.sort(([nameA, ratesA], [nameB, ratesB]) => {
+      let a: string | number, b: string | number;
+      if (sortKey === "domain") {
+        a = nameA;
+        b = nameB;
+      } else {
+        a = ratesA[sortKey];
+        b = ratesB[sortKey];
+      }
+      const cmp = typeof a === "string" ? a.localeCompare(b as string) : (a as number) - (b as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [data.per_domain, sortKey, sortDir]);
+
+  const toggleSort = (key: keyof EvalMetricsRates | "domain") => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  };
+
+  const drawerRates = drawerDomain ? data.per_domain[drawerDomain] ?? null : null;
 
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center gap-4">
-        <h1 className="text-xl font-semibold">Domains</h1>
+        <h1 className="text-2xl font-semibold text-gray-900">Domains</h1>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="eval-domain" className="sr-only">
             Evaluate scope
@@ -246,7 +272,7 @@ export default function DomainsPage() {
         )}
       </div>
 
-      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+      <div className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain to evaluate</p>
         <p className="mb-2 text-xs text-gray-500">
           Type a domain below and click the button. The domain will be saved and evaluation will run now and automatically 24/7. Refresh the page after a moment to see it in the table.
@@ -271,56 +297,70 @@ export default function DomainsPage() {
         </div>
       </div>
 
-      <p className="mb-2 text-xs text-gray-500">Eval runs automatically 24/7 on the server. Use the button to run now.</p>
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+      <p className="mb-2 text-xs text-gray-500">Eval runs automatically 24/7 on the server. Click a row to open domain details.</p>
+      <div className="card overflow-hidden">
         <table className="min-w-full">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50/80">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Domain
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Mention
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Citation
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Attribution
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                Hallucination
-              </th>
+              {[
+                { key: "domain" as const, label: "Domain" },
+                { key: "mention_rate" as const, label: "Mention" },
+                { key: "citation_rate" as const, label: "Citation" },
+                { key: "attribution_rate" as const, label: "Attribution" },
+                { key: "hallucination_rate" as const, label: "Hallucination" },
+              ].map(({ key, label }) => (
+                <th key={key} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort(key)}
+                    className="flex items-center gap-1 hover:text-gray-900"
+                  >
+                    {label}
+                    {sortKey === key ? (
+                      sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+                    ) : (
+                      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+                    )}
+                  </button>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {domains.map(([domain, rates]) => (
-              <tr key={domain} className="hover:bg-gray-50">
+            {domainsSorted.map(([domain, rates]) => (
+              <tr
+                key={domain}
+                onClick={() => setDrawerDomain(domain)}
+                className={`cursor-pointer transition-colors hover:bg-primary/5 ${
+                  rates.hallucination_rate > 0 ? "bg-rose-50/50 hover:bg-rose-100/50" : ""
+                }`}
+              >
+                <td className="px-4 py-3 font-medium text-primary">
+                  {domain}
+                </td>
                 <td className="px-4 py-3">
-                  <Link
-                    href={`${basePath}/worst-queries?domain=${encodeURIComponent(domain)}`}
-                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    {domain}
-                  </Link>
+                  <MetricBadge type="mention" value={rates.mention_rate} />
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  {(rates.mention_rate * 100).toFixed(1)}%
+                <td className="px-4 py-3">
+                  <MetricBadge type="citation" value={rates.citation_rate} />
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  {(rates.citation_rate * 100).toFixed(1)}%
+                <td className="px-4 py-3">
+                  <MetricBadge type="attribution" value={rates.attribution_rate} />
                 </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  {(rates.attribution_rate * 100).toFixed(1)}%
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-900">
-                  {(rates.hallucination_rate * 100).toFixed(1)}%
+                <td className="px-4 py-3">
+                  <MetricBadge type="hallucination" value={rates.hallucination_rate} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      <DomainDrawer
+        domain={drawerDomain}
+        rates={drawerRates}
+        basePath={basePath}
+        onClose={() => setDrawerDomain(null)}
+      />
     </div>
   );
 }

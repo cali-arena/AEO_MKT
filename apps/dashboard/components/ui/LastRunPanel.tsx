@@ -1,3 +1,5 @@
+import { Calendar, Hash } from "lucide-react";
+
 interface LastRunPanelProps {
   created_at: string;
   crawl_policy_version: string;
@@ -20,28 +22,31 @@ export function LastRunPanel({
   ec_version_hash,
 }: LastRunPanelProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-gray-900">Last run</h3>
-      <dl className="mt-3 space-y-2 text-sm">
-        <div>
-          <dt className="text-gray-500">Created</dt>
-          <dd className="font-medium text-gray-900">{formatDate(created_at)}</dd>
+    <div className="card p-5">
+      <h3 className="text-lg font-medium text-gray-900">Last run</h3>
+      <dl className="mt-4 space-y-3 text-sm">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-gray-400" />
+          <div>
+            <dt className="text-gray-500">Created</dt>
+            <dd className="font-medium text-gray-900">{formatDate(created_at)}</dd>
+          </div>
         </div>
-        <div>
-          <dt className="text-gray-500">Crawl policy version</dt>
-          <dd className="font-mono text-gray-900">{crawl_policy_version}</dd>
+        <div className="flex items-center gap-2">
+          <Hash className="h-4 w-4 text-gray-400" />
+          <div>
+            <dt className="text-gray-500">Crawl policy</dt>
+            <dd className="font-mono text-gray-900">{crawl_policy_version}</dd>
+          </div>
         </div>
-        <div>
-          <dt className="text-gray-500">AC version hash</dt>
-          <dd className="truncate font-mono text-xs text-gray-900" title={ac_version_hash}>
-            {ac_version_hash}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">EC version hash</dt>
-          <dd className="truncate font-mono text-xs text-gray-900" title={ec_version_hash}>
-            {ec_version_hash}
-          </dd>
+        <div className="flex items-center gap-2">
+          <Hash className="h-4 w-4 text-gray-400" />
+          <div>
+            <dt className="text-gray-500">AC / EC version</dt>
+            <dd className="truncate font-mono text-xs text-gray-600" title={`AC: ${ac_version_hash} EC: ${ec_version_hash}`}>
+              {ac_version_hash.slice(0, 8)}… / {ec_version_hash.slice(0, 8)}…
+            </dd>
+          </div>
         </div>
       </dl>
     </div>

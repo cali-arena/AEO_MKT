@@ -9,13 +9,18 @@ import { KpiCardSkeleton } from "@/components/ui/KpiCardSkeleton";
 import { LastRunPanel } from "@/components/ui/LastRunPanel";
 import { LastRunPanelSkeleton } from "@/components/ui/LastRunPanelSkeleton";
 
-const KPI_ITEMS = [
-  { key: "mention_rate" as const, label: "Mention rate", format: "percent" as const },
-  { key: "citation_rate" as const, label: "Citation rate", format: "percent" as const },
-  { key: "attribution_accuracy" as const, label: "Attribution accuracy", format: "percent" as const },
-  { key: "hallucinations" as const, label: "Hallucinations", format: "number" as const },
-  { key: "composite_index" as const, label: "Composite index", format: "decimal" as const },
-] as const;
+const KPI_ITEMS: Array<{
+  key: keyof import("@/lib/types").MetricsKPIs;
+  label: string;
+  format: "percent" | "number" | "decimal";
+  accent?: "primary" | "success" | "warning" | "error" | "neutral";
+}> = [
+  { key: "mention_rate", label: "Mention rate", format: "percent", accent: "primary" },
+  { key: "citation_rate", label: "Citation rate", format: "percent", accent: "primary" },
+  { key: "attribution_accuracy", label: "Attribution accuracy", format: "percent", accent: "success" },
+  { key: "hallucinations", label: "Hallucinations", format: "number", accent: "error" },
+  { key: "composite_index", label: "Composite index", format: "decimal", accent: "primary" },
+];
 
 export default function OverviewPage() {
   const params = useParams();
@@ -59,7 +64,7 @@ export default function OverviewPage() {
   if (loading) {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold">Overview</h1>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Overview</h1>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {KPI_ITEMS.map((_, i) => (
             <KpiCardSkeleton key={i} />
@@ -75,8 +80,10 @@ export default function OverviewPage() {
   if (error) {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold">Overview</h1>
-        <p className="text-red-600" role="alert">{error}</p>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Overview</h1>
+        <div className="card rounded-xl border-rose-200 bg-rose-50/50 p-4">
+          <p className="text-rose-700" role="alert">{error}</p>
+        </div>
       </div>
     );
   }
@@ -84,9 +91,9 @@ export default function OverviewPage() {
   if (!data) {
     return (
       <div>
-        <h1 className="mb-6 text-xl font-semibold">Overview</h1>
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No eval runs yet.</p>
+        <h1 className="mb-6 text-2xl font-semibold text-gray-900">Overview</h1>
+        <div className="card rounded-xl border-dashed border-gray-300 bg-gray-50/50 p-12 text-center">
+          <p className="text-lg text-gray-600">No eval runs yet.</p>
           <p className="mt-1 text-sm text-gray-500">
             Run an eval to see metrics and KPIs.
           </p>
@@ -99,10 +106,16 @@ export default function OverviewPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-xl font-semibold">Overview</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-gray-900">Overview</h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {KPI_ITEMS.map(({ key, label, format }) => (
-          <KpiCard key={key} label={label} value={kpis[key]} format={format} />
+        {KPI_ITEMS.map(({ key, label, format, accent }) => (
+          <KpiCard
+            key={key}
+            label={label}
+            value={kpis[key]}
+            format={format}
+            accent={accent}
+          />
         ))}
       </div>
       <div className="mt-6">

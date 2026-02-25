@@ -1,3 +1,30 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #1e3a8a;
+    --color-accent: #3b82f6;
+    --color-surface: #f8fafc;
+    --color-success: #059669;
+    --color-warning: #d97706;
+    --color-error: #e11d48;
+    --sidebar-bg: #0f172a;
+    --sidebar-text: #94a3b8;
+    --sidebar-active: #f1f5f9;
+  }
+  .dark {
+    --color-surface: #0f172a;
+    --sidebar-bg: #020617;
+  }
+  body {
+    @apply bg-surface text-gray-900 dark:bg-slate-900 dark:text-slate-100;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-gray-200/80 bg-white shadow-card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+}
