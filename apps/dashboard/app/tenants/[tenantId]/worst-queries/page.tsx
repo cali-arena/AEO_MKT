@@ -37,6 +37,7 @@ export default function WorstQueriesPage() {
   const failedOnlyParam = searchParams.get("failed_only");
   const refusedOnlyParam = searchParams.get("refused_only");
   const hallucinationsOnlyParam = searchParams.get("hallucinations_only");
+  const runIdParam = searchParams.get("run_id");
 
   const [domain, setDomain] = useState(domainParam);
   const [failedOnly, setFailedOnly] = useState(failedOnlyParam !== "false");
@@ -62,10 +63,13 @@ export default function WorstQueriesPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch<EvalRunsResponse>("/eval/runs?limit=1")
+    apiFetch<EvalRunsResponse>("/eval/runs?limit=15")
       .then((runsRes) => {
         if (cancelled) return;
-        const run = runsRes.runs[0];
+        const runs = runsRes.runs;
+        const run = runIdParam
+          ? runs.find((r) => r.run_id === runIdParam) ?? runs[0]
+          : runs[0];
         if (!run) {
           setRunId(null);
           setResults([]);
@@ -105,7 +109,7 @@ export default function WorstQueriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [tenantId, domainParam, failedOnlyParam, refusedOnlyParam, hallucinationsOnlyParam]);
+  }, [tenantId, runIdParam, domainParam, failedOnlyParam, refusedOnlyParam, hallucinationsOnlyParam]);
 
   const handleSort = (key: SortKey) => {
     setSortDir((d) => (sortKey === key ? (d === "asc" ? "desc" : "asc") : "desc"));

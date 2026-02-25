@@ -25,6 +25,9 @@ export default function DomainsPage() {
   const [sortKey, setSortKey] = useState<keyof EvalMetricsRates | "domain">("domain");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
+  const [bulkDomains, setBulkDomains] = useState("");
+  const [addingBulk, setAddingBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
   const domainsSorted = useMemo(() => {
     const perDomain = data?.per_domain;
@@ -143,6 +146,43 @@ export default function DomainsPage() {
     },
     [tenantId, refresh]
   );
+
+  const addMultipleDomains = useCallback(async () => {
+    const lines = bulkDomains
+      .split(/[\n,;]+/)
+      .map((d) => d.trim().toLowerCase())
+      .filter((d) => d.length > 0);
+    const unique = Array.from(new Set(lines));
+    if (!tenantId || unique.length === 0) return;
+    setAddingBulk(true);
+    setBulkProgress({ done: 0, total: unique.length });
+    setRunMessage(null);
+    let lastError: string | null = null;
+    for (let i = 0; i < unique.length; i++) {
+      setBulkProgress({ done: i, total: unique.length });
+      try {
+        await apiFetch<{ status: string; message: string }>("/eval/domains", {
+          method: "POST",
+          body: JSON.stringify({ domain: unique[i] }),
+        });
+      } catch (err) {
+        lastError = err instanceof Error ? err.message : "Failed to add domain";
+      }
+      if (i < unique.length - 1) await new Promise((r) => setTimeout(r, 400));
+    }
+    setBulkProgress({ done: unique.length, total: unique.length });
+    setRunMessage(
+      lastError
+        ? { type: "error", text: `Added ${unique.length - 1}; last failed: ${lastError}` }
+        : { type: "success", text: `Added ${unique.length} domain(s). Eval running 24/7. Refresh in a moment.` }
+    );
+    setBulkDomains("");
+    setTimeout(() => {
+      setAddingBulk(false);
+      setBulkProgress(null);
+      refresh();
+    }, 1500);
+  }, [tenantId, bulkDomains, refresh]);
 
   if (!tenantId || loading) {
     return (
@@ -278,11 +318,11 @@ export default function DomainsPage() {
       </div>
 
       <div className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
-        <p className="mb-2 text-sm font-medium text-gray-700">Add domain to evaluate</p>
-        <p className="mb-2 text-xs text-gray-500">
-          Type a domain below and click the button. The domain will be saved and evaluation will run now and automatically 24/7. Refresh the page after a moment to see it in the table.
+        <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
+        <p className="mb-3 text-xs text-gray-500">
+          Add one domain in the field below, or paste multiple domains (one per line or comma/semicolon separated) and click &quot;Add all&quot;. Domains are saved and eval runs 24/7. Refresh after a moment to see them in the table.
         </p>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <input
             type="text"
             placeholder="e.g. coasttocoastmovers.com"
@@ -294,18 +334,45 @@ export default function DomainsPage() {
           <button
             type="button"
             onClick={() => addDomainAndRunEval(domainInput.trim())}
-            disabled={runLoading || !domainInput.trim()}
+            disabled={runLoading || addingBulk || !domainInput.trim()}
             className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
             {runLoading ? "Starting…" : "Evaluate this domain"}
           </button>
         </div>
+        <div className="flex flex-col gap-2">
+          <textarea
+            placeholder="Paste multiple domains (one per line or comma/semicolon separated)"
+            value={bulkDomains}
+            onChange={(e) => setBulkDomains(e.target.value)}
+            rows={3}
+            className="w-full rounded border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+            disabled={addingBulk}
+          />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={addMultipleDomains}
+              disabled={addingBulk || !bulkDomains.trim()}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+            >
+              {addingBulk && bulkProgress
+                ? `Adding ${bulkProgress.done} of ${bulkProgress.total}…`
+                : "Add all domains"}
+            </button>
+            {bulkProgress && (
+              <span className="text-xs text-gray-500">
+                {bulkProgress.done} of {bulkProgress.total} added
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
       <p className="mb-2 text-xs text-gray-500">Eval runs automatically 24/7 on the server. Click a row to open domain details.</p>
-      <div className="card overflow-hidden">
+      <div className="card max-h-[min(70vh,600px)] overflow-auto">
         <table className="min-w-full">
-          <thead className="bg-gray-50/80">
+          <thead className="sticky top-0 z-10 bg-gray-50/95 shadow-sm backdrop-blur dark:bg-slate-800/95">
             <tr>
               {[
                 { key: "domain" as const, label: "Domain" },
@@ -314,7 +381,7 @@ export default function DomainsPage() {
                 { key: "attribution_rate" as const, label: "Attribution" },
                 { key: "hallucination_rate" as const, label: "Hallucination" },
               ].map(({ key, label }) => (
-                <th key={key} className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                <th key={key} className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                   <button
                     type="button"
                     onClick={() => toggleSort(key)}
@@ -340,19 +407,19 @@ export default function DomainsPage() {
                   rates.hallucination_rate > 0 ? "bg-rose-50/50 hover:bg-rose-100/50" : ""
                 }`}
               >
-                <td className="px-4 py-3 font-medium text-primary">
+                <td className="px-3 py-2 font-medium text-primary">
                   {domain}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <MetricBadge type="mention" value={rates.mention_rate} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <MetricBadge type="citation" value={rates.citation_rate} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <MetricBadge type="attribution" value={rates.attribution_rate} />
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <MetricBadge type="hallucination" value={rates.hallucination_rate} />
                 </td>
               </tr>

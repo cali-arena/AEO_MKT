@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { User, ChevronDown } from "lucide-react";
 import { DarkModeToggle } from "@/components/theme/DarkModeToggle";
+import { RunSelector } from "./RunSelector";
 
 interface HeaderProps {
   tenantId: string;
@@ -49,6 +50,7 @@ export function Header({ tenantId, lastSync }: HeaderProps) {
         {displaySync && (
           <span className="text-xs text-gray-500">Last sync: {displaySync}</span>
         )}
+        <RunSelector />
       </div>
       <div className="flex items-center gap-3">
         <DarkModeToggle />
