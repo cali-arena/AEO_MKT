@@ -19,6 +19,7 @@ export default function DomainsPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [runMessage, setRunMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [evalScope, setEvalScope] = useState<string>("");
+  const [domainInput, setDomainInput] = useState<string>("");
 
   const refresh = useCallback(() => {
     if (!tenantId) return;
@@ -138,10 +139,21 @@ export default function DomainsPage() {
         <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
           <p className="text-gray-600">No domains yet.</p>
           <p className="mt-1 text-sm text-gray-500">Run an eval to see per-domain metrics.</p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <label htmlFor="domain-to-eval" className="text-sm text-gray-600">
+              Domain to evaluate:
+            </label>
+            <input
+              id="domain-to-eval"
+              type="text"
+              placeholder="e.g. example.com (optional — leave empty for all)"
+              value={domainInput}
+              onChange={(e) => setDomainInput(e.target.value)}
+              className="min-w-[200px] rounded border border-gray-300 px-3 py-2 text-sm"
+            />
             <button
               type="button"
-              onClick={() => runEval(null)}
+              onClick={() => runEval(domainInput.trim() || null)}
               disabled={runLoading}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -154,6 +166,11 @@ export default function DomainsPage() {
             </p>
           )}
           <p className="mt-4 text-xs text-gray-400">Eval also runs automatically 24/7 on the server.</p>
+          {runMessage?.type === "error" && runMessage.text.toLowerCase().includes("not found") && (
+            <p className="mt-2 text-xs text-amber-700">
+              If you see &quot;Not Found&quot;, ensure the API on the VM has the latest code and NEXT_PUBLIC_API_BASE in Vercel points to your tunnel URL.
+            </p>
+          )}
         </div>
       </div>
     );
