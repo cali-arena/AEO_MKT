@@ -334,10 +334,10 @@ export default function DomainsPage() {
         )}
       </div>
 
-      <div className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
+      <div id="add-domains-section" className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
         <p className="mb-3 text-xs text-gray-500">
-          Paste one or many domains below (one per line, or separated by commas or semicolons). Click &quot;Evaluate domain(s)&quot; — the site will split and add each domain. Eval runs 24/7. Refresh after a moment to see them in the table.
+          Add the number of domains you want (1, 5, 20, or more). Paste them below — one per line or separated by commas/semicolons — then click &quot;Evaluate domain(s)&quot; once. All will be added and show in the table after the eval run completes. Eval runs 24/7.
         </p>
         <div className="flex flex-col gap-2">
           <textarea
@@ -371,16 +371,30 @@ export default function DomainsPage() {
         </div>
       </div>
 
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs text-gray-500">Eval runs automatically 24/7 on the server. Click a row to open domain details. Table shows the latest completed run.</p>
-        <button
-          type="button"
-          onClick={() => refresh()}
-          disabled={loading}
-          className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {loading ? "Refreshing…" : "Refresh table"}
-        </button>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs text-gray-500">Eval runs automatically 24/7. Click a row for details. Table shows the latest completed run.</p>
+          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-slate-700 dark:text-slate-200">
+            {domainsSorted.length} domain{domainsSorted.length !== 1 ? "s" : ""} in table
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => document.getElementById("add-domains-section")?.scrollIntoView({ behavior: "smooth" })}
+            className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-white hover:bg-primary/90"
+          >
+            Add more domains
+          </button>
+          <button
+            type="button"
+            onClick={() => refresh()}
+            disabled={loading}
+            className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {loading ? "Refreshing…" : "Refresh table"}
+          </button>
+        </div>
       </div>
       <div className="card max-h-[min(70vh,600px)] overflow-auto">
         <table className="min-w-full">
