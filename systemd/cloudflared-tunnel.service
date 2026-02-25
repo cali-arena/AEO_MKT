@@ -1,0 +1,25 @@
+# Cloudflare quick tunnel: expõe localhost:8000 (API) via HTTPS.
+# Instalar no VM para o túnel rodar sempre e subir após reboot.
+#
+# IMPORTANTE: Quick tunnel gera URL NOVA a cada start/reboot.
+# Após cada reboot: ver a URL em journalctl (abaixo) e atualizar
+# NEXT_PUBLIC_API_BASE no Vercel + redeploy.
+#
+# Para URL fixa: use tunnel nomeado (conta Cloudflare) ou Caddy + domínio no VM.
+
+[Unit]
+Description=Cloudflare Tunnel to localhost:8000 (API)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/cloudflared tunnel --url http://localhost:8000
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cloudflared
+
+[Install]
+WantedBy=multi-user.target

@@ -1,13 +1,16 @@
-"""Read-only eval dashboard endpoints. Tenant from auth middleware only."""
+"""Read-only eval dashboard endpoints + POST /eval/run to trigger eval. Tenant from auth middleware only."""
 
+import threading
 from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from apps.api.schemas.eval import EvalMetricsLatestOut, EvalMetricsRates, EvalRunOut, EvalResultOut
 from apps.api.schemas.eval_read import EvalResultRow, EvalRunListItem, EvalRunResultsResponse, EvalRunsResponse
 from apps.api.schemas.metrics import MetricsKPIs
+from apps.api.services.eval_runner import run_eval_sync
 from apps.api.services.repo import (
     aggregate_kpis_for_run,
     get_eval_metrics_for_run,
@@ -19,6 +22,17 @@ from apps.api.services.repo import (
 from apps.api.services.tenant_context import TenantId
 
 router = APIRouter()
+
+
+class EvalRunRequest(BaseModel):
+    """Optional body for POST /eval/run: run eval for all queries or filter by domain."""
+
+    domain: str | None = None
+
+
+class EvalRunResponse(BaseModel):
+    status: str
+    message: str
 
 
 @router.get("/metrics/latest", response_model=EvalMetricsLatestOut)
@@ -105,3 +119,22 @@ async def get_run_results(
         for r in results
     ]
     return EvalRunResultsResponse(tenant_id=tenant_id, run_id=run_id, results=rows)
+
+
+@router.post("/run", response_model=EvalRunResponse, status_code=202)
+async def trigger_eval_run(
+    tenant_id: TenantId,
+    body: EvalRunRequest | None = None,
+) -> EvalRunResponse:
+    """Start an eval run in the background for the current tenant. Optional domain filter.
+    Returns 202 immediately; refresh /eval/metrics/latest or Domains page to see results."""
+    domain = (body.domain if body else None) or None
+
+    def _run() -> None:
+        run_eval_sync(tenant_id, domain)
+
+    threading.Thread(target=_run, daemon=True).start()
+    return EvalRunResponse(
+        status="started",
+        message="Evaluation running in background. Refresh the page in a moment to see results.",
+    )

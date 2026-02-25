@@ -88,6 +88,38 @@ sudo systemctl restart ai-mkt-eval.timer
 
 `OnCalendar` uses systemd time format (e.g. `03:30`, `Mon 02:00`, `*-*-15 02:00` for 15th of month).
 
+### Eval 24/7 (hourly)
+
+To run eval every hour so the Domains/Overview dashboard always has fresh metrics:
+
+**systemd:** override the eval timer to run hourly:
+
+```bash
+sudo systemctl edit ai-mkt-eval.timer
+```
+
+Add or replace:
+
+```ini
+[Timer]
+OnCalendar=hourly
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ai-mkt-eval.timer
+```
+
+**Crontab:** run every hour at minute 0:
+
+```cron
+0 * * * * cd /opt/ai-mkt && .venv/bin/python -m cron.eval_nightly
+```
+
+(Use a wrapper that sources your env file if needed.)
+
 ---
 
 ## Run manually

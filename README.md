@@ -166,33 +166,15 @@ make logs   # tail api logs
 
 ---
 
-## 3. Vercel setup
+## 3. Vercel setup (frontend in the cloud)
 
-### 3.1 Environment variable
+**Step-by-step:** See **[apps/dashboard/VERCEL_DEPLOY.md](apps/dashboard/VERCEL_DEPLOY.md)** for connect repo, root directory, env, and CORS.
 
-In Vercel project settings → Environment Variables:
+Summary:
 
-| Name | Value |
-|------|-------|
-| `NEXT_PUBLIC_API_BASE` | `https://api.yourvps.com` (no trailing slash) |
-
-Copy from `apps/dashboard/.env.example` if needed.
-
-### 5.2 Deploy dashboard
-
-```bash
-cd apps/dashboard
-npm install
-npm run build
-```
-
-Deploy via Vercel CLI or Git integration:
-
-```bash
-vercel
-```
-
-Or connect the repo and set root directory to `apps/dashboard`.
+1. **Vercel:** New Project → import repo → set **Root Directory** to `apps/dashboard`.
+2. **Env:** Add `NEXT_PUBLIC_API_BASE` = your API URL (e.g. `http://89.167.81.215:8000` for VM, no trailing slash).
+3. **Deploy**; then add your Vercel URL to **CORS_ALLOW_ORIGINS** in the VM `.env` and restart the API.
 
 ---
 
@@ -255,6 +237,24 @@ See **[cron/README.md](cron/README.md)** for:
 ---
 
 ## 8. Troubleshooting
+
+### Log noise on VPS (401 Unauthorized, Postgres FATAL)
+
+**Your system is running.** The API and Postgres containers are up. What you see in the logs is mostly **internet bots** probing your server:
+
+- **API:** `GET /` from random IPs → **401 Unauthorized** is correct. Only `/health` is public; all other routes require `Authorization: Bearer tenant:...`. Those requests are scanners, not your app.
+- **Postgres:** `FATAL: no PostgreSQL user name specified`, `invalid length of startup packet`, `unsupported frontend protocol`, `password authentication failed for user "pgg_superadmins"` → bots hitting port 5432. Your API connects over the Docker network and is fine.
+
+**To reduce noise and harden:**
+
+1. **Postgres not exposed to the internet** – In `infra/docker-compose.yml`, Postgres is bound to `127.0.0.1:5432` so only the host (and containers) can reach it. After pulling this change, run `docker compose ... down` then `up -d --build` so the new binding applies.
+2. **Optional firewall (ufw):** Allow only what you need, e.g. SSH (22), API (8000) or your reverse proxy (80/443):
+   ```bash
+   sudo ufw allow 22
+   sudo ufw allow 8000
+   sudo ufw enable
+   ```
+3. **Check that the app works:** From the VM or your PC: `curl -s http://YOUR_VM_IP:8000/health` → should return JSON with status ok.
 
 ### CORS errors
 
