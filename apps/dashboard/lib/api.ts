@@ -1,11 +1,15 @@
 /**
  * API client for AI MKT backend.
  * Uses NEXT_PUBLIC_API_BASE. Attaches token from cookie (client or server).
+ * On Vercel (production) the env var is required; no localhost fallback.
  */
 
 import { getTokenClient, getTokenServer } from "./auth";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Vercel sets VERCEL=1. In production we never use localhost so the build never points to it.
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE ||
+  (process.env.VERCEL === "1" ? "" : "http://localhost:8000");
 
 export class ApiError extends Error {
   constructor(
