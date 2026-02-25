@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { User, ChevronDown } from "lucide-react";
+import { DarkModeToggle } from "@/components/theme/DarkModeToggle";
 
 interface HeaderProps {
   tenantId: string;

@@ -8,7 +8,7 @@ import { MetricBadge } from "@/components/ui/MetricBadge";
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 
-function loadData(tenantId: string) {
+function loadData(_tenantId: string) {
   return apiFetch<EvalMetricsLatestOut>("/eval/metrics/latest");
 }
 
@@ -22,6 +22,35 @@ export default function DomainsPage() {
   const [runMessage, setRunMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [evalScope, setEvalScope] = useState<string>("");
   const [domainInput, setDomainInput] = useState<string>("");
+  const [sortKey, setSortKey] = useState<keyof EvalMetricsRates | "domain">("domain");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
+
+  const domainsSorted = useMemo(() => {
+    const perDomain = data?.per_domain;
+    if (!perDomain) return [];
+    const entries = Object.entries(perDomain);
+    return entries.sort(([nameA, ratesA], [nameB, ratesB]) => {
+      let a: string | number, b: string | number;
+      if (sortKey === "domain") {
+        a = nameA;
+        b = nameB;
+      } else {
+        a = ratesA[sortKey];
+        b = ratesB[sortKey];
+      }
+      const cmp = typeof a === "string" ? a.localeCompare(b as string) : (a as number) - (b as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [data?.per_domain, sortKey, sortDir]);
+
+  const toggleSort = useCallback((key: keyof EvalMetricsRates | "domain") => {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }, [sortKey]);
 
   const refresh = useCallback(() => {
     if (!tenantId) return;
@@ -207,32 +236,8 @@ export default function DomainsPage() {
     );
   }
 
-  const basePath = `/tenants/${encodeURIComponent(tenantId)}`;
-  const domainsSorted = useMemo(() => {
-    const entries = Object.entries(data.per_domain);
-    return entries.sort(([nameA, ratesA], [nameB, ratesB]) => {
-      let a: string | number, b: string | number;
-      if (sortKey === "domain") {
-        a = nameA;
-        b = nameB;
-      } else {
-        a = ratesA[sortKey];
-        b = ratesB[sortKey];
-      }
-      const cmp = typeof a === "string" ? a.localeCompare(b as string) : (a as number) - (b as number);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [data.per_domain, sortKey, sortDir]);
-
-  const toggleSort = (key: keyof EvalMetricsRates | "domain") => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  };
-
-  const drawerRates = drawerDomain ? data.per_domain[drawerDomain] ?? null : null;
+  const basePath = `/tenants/${encodeURIComponent(tenantId!)}`;
+  const drawerRates = data && drawerDomain ? data.per_domain[drawerDomain] ?? null : null;
 
   return (
     <div>
@@ -250,7 +255,7 @@ export default function DomainsPage() {
             disabled={runLoading}
           >
             <option value="">All domains</option>
-            {domains.map(([d]) => (
+            {domainsSorted.map(([d]) => (
               <option key={d} value={d}>
                 {d}
               </option>

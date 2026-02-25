@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api";
 import type { MetricsTrendsResponse, MetricsTrendPoint } from "@/lib/types";

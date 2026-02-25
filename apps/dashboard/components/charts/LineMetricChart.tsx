@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import {
   AreaChart,
   Area,
@@ -21,7 +22,10 @@ export interface LineMetricChartProps {
   yTickFormatter?: (value: number) => string;
 }
 
-export function LineMetricChart({
+const gradientId = (title?: string, yKey?: string) =>
+  `fill-${String(title ?? "")}-${String(yKey ?? "")}`;
+
+function LineMetricChartInner({
   data,
   xKey,
   yKey,

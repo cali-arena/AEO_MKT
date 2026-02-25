@@ -11,6 +11,7 @@ import {
   ChevronLeft,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { HealthScore } from "./HealthScore";
 
 const NAV_ITEMS = [
   { path: "overview", label: "Overview", icon: LayoutDashboard },
