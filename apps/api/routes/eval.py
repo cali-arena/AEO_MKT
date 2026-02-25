@@ -42,10 +42,16 @@ async def get_metrics_latest(tenant_id: TenantId) -> EvalMetricsLatestOut:
     if run is None:
         raise HTTPException(status_code=404, detail="No eval runs found for tenant")
     metrics = get_eval_metrics_for_run(tenant_id, run.id)
+    per_domain = metrics.get("per_domain") or {}
+    per_domain_clean = {
+        str(d or ""): EvalMetricsRates.model_validate(m)
+        for d, m in per_domain.items()
+        if d is not None and str(d).strip()
+    }
     return EvalMetricsLatestOut(
         run_id=run.id,
         overall=EvalMetricsRates.model_validate(metrics["overall"]),
-        per_domain={d: EvalMetricsRates.model_validate(m) for d, m in metrics["per_domain"].items()},
+        per_domain=per_domain_clean,
     )
 
 
