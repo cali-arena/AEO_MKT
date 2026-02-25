@@ -25,7 +25,6 @@ export default function DomainsPage() {
   const [sortKey, setSortKey] = useState<keyof EvalMetricsRates | "domain">("domain");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
-  const [bulkDomains, setBulkDomains] = useState("");
   const [addingBulk, setAddingBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
 
@@ -122,14 +121,26 @@ export default function DomainsPage() {
     [tenantId, refresh]
   );
 
-  const addDomainAndRunEval = useCallback(
-    (domain: string) => {
-      if (!tenantId || !domain.trim()) return;
+  const parseDomainList = useCallback((text: string): string[] => {
+    return Array.from(
+      new Set(
+        text
+          .split(/[\n,;]+/)
+          .map((d) => d.trim().toLowerCase())
+          .filter((d) => d.length > 0)
+      )
+    );
+  }, []);
+
+  const evaluateDomains = useCallback(async () => {
+    const list = parseDomainList(domainInput);
+    if (!tenantId || list.length === 0) return;
+    setRunMessage(null);
+    if (list.length === 1) {
       setRunLoading(true);
-      setRunMessage(null);
       apiFetch<{ status: string; message: string }>("/eval/domains", {
         method: "POST",
-        body: JSON.stringify({ domain: domain.trim() }),
+        body: JSON.stringify({ domain: list[0] }),
       })
         .then((res) => {
           setRunMessage({ type: "success", text: res.message });
@@ -139,50 +150,40 @@ export default function DomainsPage() {
         .catch((err) => {
           setRunMessage({
             type: "error",
-            text: err instanceof Error ? err.message : "Failed to add domain and start evaluation",
+            text: err instanceof Error ? err.message : "Failed to add domain",
           });
         })
         .finally(() => setRunLoading(false));
-    },
-    [tenantId, refresh]
-  );
-
-  const addMultipleDomains = useCallback(async () => {
-    const lines = bulkDomains
-      .split(/[\n,;]+/)
-      .map((d) => d.trim().toLowerCase())
-      .filter((d) => d.length > 0);
-    const unique = Array.from(new Set(lines));
-    if (!tenantId || unique.length === 0) return;
+      return;
+    }
     setAddingBulk(true);
-    setBulkProgress({ done: 0, total: unique.length });
-    setRunMessage(null);
+    setBulkProgress({ done: 0, total: list.length });
     let lastError: string | null = null;
-    for (let i = 0; i < unique.length; i++) {
-      setBulkProgress({ done: i, total: unique.length });
+    for (let i = 0; i < list.length; i++) {
+      setBulkProgress({ done: i, total: list.length });
       try {
         await apiFetch<{ status: string; message: string }>("/eval/domains", {
           method: "POST",
-          body: JSON.stringify({ domain: unique[i] }),
+          body: JSON.stringify({ domain: list[i] }),
         });
       } catch (err) {
         lastError = err instanceof Error ? err.message : "Failed to add domain";
       }
-      if (i < unique.length - 1) await new Promise((r) => setTimeout(r, 400));
+      if (i < list.length - 1) await new Promise((r) => setTimeout(r, 400));
     }
-    setBulkProgress({ done: unique.length, total: unique.length });
+    setBulkProgress({ done: list.length, total: list.length });
     setRunMessage(
       lastError
-        ? { type: "error", text: `Added ${unique.length - 1}; last failed: ${lastError}` }
-        : { type: "success", text: `Added ${unique.length} domain(s). Eval running 24/7. Refresh in a moment.` }
+        ? { type: "error", text: `Added ${list.length - 1}; last failed: ${lastError}` }
+        : { type: "success", text: `Added ${list.length} domain(s). Eval running 24/7. Refresh in a moment.` }
     );
-    setBulkDomains("");
+    setDomainInput("");
     setTimeout(() => {
       setAddingBulk(false);
       setBulkProgress(null);
       refresh();
     }, 1500);
-  }, [tenantId, bulkDomains, refresh]);
+  }, [tenantId, domainInput, parseDomainList, refresh]);
 
   if (!tenantId || loading) {
     return (
@@ -249,15 +250,11 @@ export default function DomainsPage() {
             />
             <button
               type="button"
-              onClick={() =>
-                domainInput.trim()
-                  ? addDomainAndRunEval(domainInput.trim())
-                  : runEval(null)
-              }
-              disabled={runLoading}
+              onClick={() => (domainInput.trim() ? evaluateDomains() : runEval(null))}
+              disabled={runLoading || addingBulk}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              {runLoading ? "Starting…" : domainInput.trim() ? "Add domain and run evaluation" : "Run evaluation"}
+              {runLoading || addingBulk ? "Starting…" : domainInput.trim() ? "Add domain(s) and run evaluation" : "Run evaluation"}
             </button>
           </div>
           {runMessage && (
@@ -320,45 +317,30 @@ export default function DomainsPage() {
       <div className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
         <p className="mb-3 text-xs text-gray-500">
-          Add one domain in the field below, or paste multiple domains (one per line or comma/semicolon separated) and click &quot;Add all&quot;. Domains are saved and eval runs 24/7. Refresh after a moment to see them in the table.
+          Paste one or many domains below (one per line, or separated by commas or semicolons). Click &quot;Evaluate domain(s)&quot; — the site will split and add each domain. Eval runs 24/7. Refresh after a moment to see them in the table.
         </p>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder="e.g. coasttocoastmovers.com"
-            value={domainInput}
-            onChange={(e) => setDomainInput(e.target.value)}
-            className="min-w-[220px] rounded border border-gray-300 px-3 py-2 text-sm"
-            id="add-domain-input"
-          />
-          <button
-            type="button"
-            onClick={() => addDomainAndRunEval(domainInput.trim())}
-            disabled={runLoading || addingBulk || !domainInput.trim()}
-            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {runLoading ? "Starting…" : "Evaluate this domain"}
-          </button>
-        </div>
         <div className="flex flex-col gap-2">
           <textarea
-            placeholder="Paste multiple domains (one per line or comma/semicolon separated)"
-            value={bulkDomains}
-            onChange={(e) => setBulkDomains(e.target.value)}
-            rows={3}
+            placeholder="e.g. coasttocoastmovers.com — or paste many (one per line or comma/semicolon separated)"
+            value={domainInput}
+            onChange={(e) => setDomainInput(e.target.value)}
+            rows={5}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
+            id="add-domain-input"
             disabled={addingBulk}
           />
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={addMultipleDomains}
-              disabled={addingBulk || !bulkDomains.trim()}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
+              onClick={evaluateDomains}
+              disabled={runLoading || addingBulk || !domainInput.trim()}
+              className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
               {addingBulk && bulkProgress
                 ? `Adding ${bulkProgress.done} of ${bulkProgress.total}…`
-                : "Add all domains"}
+                : runLoading
+                  ? "Starting…"
+                  : "Evaluate domain(s)"}
             </button>
             {bulkProgress && (
               <span className="text-xs text-gray-500">
