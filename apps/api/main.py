@@ -4,10 +4,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 logging.basicConfig(level=logging.INFO)
-from fastapi.middleware.cors import CORSMiddleware
 
 from apps.api.db import ensure_tables
 from apps.api.routes import answer, eval as eval_routes, health, leakage, metrics, monitor, retrieve
@@ -40,6 +41,26 @@ app = FastAPI(
 
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
 app.middleware("http")(auth_middleware)
+
+
+def _cors_headers_for_request(origin: str | None) -> dict[str, str]:
+    """Return CORS headers if origin is allowed (so error responses still satisfy CORS)."""
+    if origin and origin in CORS_ORIGINS:
+        return {"Access-Control-Allow-Origin": origin}
+    return {}
+
+
+@app.exception_handler(Exception)
+async def add_cors_to_errors(request: Request, exc: Exception):
+    """Ensure 500 and other error responses include CORS so the browser does not show a CORS block."""
+    origin = request.headers.get("origin")
+    headers = _cors_headers_for_request(origin)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error", "error": str(exc)},
+        headers=headers,
+    )
+
 
 app.include_router(health.router, tags=["health"])
 app.include_router(retrieve.router, prefix="/retrieve", tags=["retrieve"])
