@@ -216,6 +216,32 @@ export default function DomainsPage() {
           </span>
         )}
       </div>
+
+      <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+        <p className="mb-2 text-sm font-medium text-gray-700">Add domain to evaluate</p>
+        <p className="mb-2 text-xs text-gray-500">
+          Type a domain below and click the button. The server will run an evaluation for that domain; after it finishes, refresh the page to see it in the table (if the server has queries for that domain).
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            placeholder="e.g. coasttocoastmovers.com"
+            value={domainInput}
+            onChange={(e) => setDomainInput(e.target.value)}
+            className="min-w-[220px] rounded border border-gray-300 px-3 py-2 text-sm"
+            id="add-domain-input"
+          />
+          <button
+            type="button"
+            onClick={() => runEval(domainInput.trim() || null)}
+            disabled={runLoading || !domainInput.trim()}
+            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {runLoading ? "Starting…" : "Evaluate this domain"}
+          </button>
+        </div>
+      </div>
+
       <p className="mb-2 text-xs text-gray-500">Eval runs automatically 24/7 on the server. Use the button to run now.</p>
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         <table className="min-w-full">
