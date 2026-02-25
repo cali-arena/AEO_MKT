@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Float, case, cast, delete, func, or_, select, text
+from sqlalchemy import Float, Integer, case, cast, delete, func, or_, select, text
 
 from apps.api.db import get_db
 from apps.api.models.ac_embedding import ACEmbedding
@@ -1111,12 +1111,13 @@ def get_eval_metrics_for_run(
     """Aggregate mention_rate, citation_rate, attribution_rate, hallucination_rate for run.
     Returns {overall: {...}, per_domain: {domain: {...}}}."""
     tenant_id = require_tenant_id(tenant_id)
+    # PostgreSQL: cast boolean to Integer (0/1) before avg; cannot cast boolean to Float directly
     overall_stmt = (
         select(
-            func.avg(cast(EvalResult.mention_ok, Float)).label("mention_rate"),
-            func.avg(cast(EvalResult.citation_ok, Float)).label("citation_rate"),
-            func.avg(cast(EvalResult.attribution_ok, Float)).label("attribution_rate"),
-            func.avg(cast(EvalResult.hallucination_flag, Float)).label("hallucination_rate"),
+            func.avg(cast(EvalResult.mention_ok, Integer)).label("mention_rate"),
+            func.avg(cast(EvalResult.citation_ok, Integer)).label("citation_rate"),
+            func.avg(cast(EvalResult.attribution_ok, Integer)).label("attribution_rate"),
+            func.avg(cast(EvalResult.hallucination_flag, Integer)).label("hallucination_rate"),
         )
         .select_from(EvalResult)
         .where(tenant_where(EvalResult, tenant_id), EvalResult.run_id == run_id)
@@ -1124,10 +1125,10 @@ def get_eval_metrics_for_run(
     domain_stmt = (
         select(
             EvalResult.domain,
-            func.avg(cast(EvalResult.mention_ok, Float)).label("mention_rate"),
-            func.avg(cast(EvalResult.citation_ok, Float)).label("citation_rate"),
-            func.avg(cast(EvalResult.attribution_ok, Float)).label("attribution_rate"),
-            func.avg(cast(EvalResult.hallucination_flag, Float)).label("hallucination_rate"),
+            func.avg(cast(EvalResult.mention_ok, Integer)).label("mention_rate"),
+            func.avg(cast(EvalResult.citation_ok, Integer)).label("citation_rate"),
+            func.avg(cast(EvalResult.attribution_ok, Integer)).label("attribution_rate"),
+            func.avg(cast(EvalResult.hallucination_flag, Integer)).label("hallucination_rate"),
         )
         .where(tenant_where(EvalResult, tenant_id), EvalResult.run_id == run_id)
         .group_by(EvalResult.domain)
