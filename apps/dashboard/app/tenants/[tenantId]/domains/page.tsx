@@ -132,6 +132,18 @@ export default function DomainsPage() {
     );
   }, []);
 
+  const scheduleRefreshPoll = useCallback(() => {
+    refresh();
+    const t2 = window.setTimeout(() => refresh(), 5000);
+    const t3 = window.setTimeout(() => refresh(), 20000);
+    const t4 = window.setTimeout(() => refresh(), 60000);
+    return () => {
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+    };
+  }, [refresh]);
+
   const evaluateDomains = useCallback(async () => {
     const list = parseDomainList(domainInput);
     if (!tenantId || list.length === 0) return;
@@ -143,9 +155,13 @@ export default function DomainsPage() {
         body: JSON.stringify({ domain: list[0] }),
       })
         .then((res) => {
-          setRunMessage({ type: "success", text: res.message });
+          setRunMessage({
+            type: "success",
+            text: "Domain added. Eval is running — the table will update in 1–2 min when it finishes, or refresh the page.",
+          });
           setDomainInput("");
-          setTimeout(refresh, 2000);
+          refresh();
+          scheduleRefreshPoll();
         })
         .catch((err) => {
           setRunMessage({
@@ -175,15 +191,19 @@ export default function DomainsPage() {
     setRunMessage(
       lastError
         ? { type: "error", text: `Added ${list.length - 1}; last failed: ${lastError}` }
-        : { type: "success", text: `Added ${list.length} domain(s). Eval running 24/7. Refresh in a moment.` }
+        : {
+            type: "success",
+            text: `Added ${list.length} domain(s). Eval is running — the table will update in 1–2 min when the run completes, or refresh the page.`,
+          }
     );
     setDomainInput("");
+    scheduleRefreshPoll();
     setTimeout(() => {
       setAddingBulk(false);
       setBulkProgress(null);
       refresh();
     }, 1500);
-  }, [tenantId, domainInput, parseDomainList, refresh]);
+  }, [tenantId, domainInput, parseDomainList, refresh, scheduleRefreshPoll]);
 
   if (!tenantId || loading) {
     return (
@@ -351,7 +371,17 @@ export default function DomainsPage() {
         </div>
       </div>
 
-      <p className="mb-2 text-xs text-gray-500">Eval runs automatically 24/7 on the server. Click a row to open domain details.</p>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs text-gray-500">Eval runs automatically 24/7 on the server. Click a row to open domain details. Table shows the latest completed run.</p>
+        <button
+          type="button"
+          onClick={() => refresh()}
+          disabled={loading}
+          className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {loading ? "Refreshing…" : "Refresh table"}
+        </button>
+      </div>
       <div className="card max-h-[min(70vh,600px)] overflow-auto">
         <table className="min-w-full">
           <thead className="sticky top-0 z-10 bg-gray-50/95 shadow-sm backdrop-blur dark:bg-slate-800/95">
