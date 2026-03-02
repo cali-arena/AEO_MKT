@@ -62,9 +62,12 @@ services:
     networks:
       - ai-mkt
     env_file:
-      - ../.env
+      - .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-aeo}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ai_mkt}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_mkt}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       ENV: ${ENV:-prod}
       API_BASE: http://api:8000
     depends_on:
@@ -72,28 +75,6 @@ services:
         condition: service_healthy
     command: >
       sh -c "python -m apps.api.worker"
-
-  worker:
-    build:
-      context: ..
-      dockerfile: infra/Dockerfile
-    restart: always
-    networks:
-      - ai-mkt
-    env_file:
-      - ../.env
-    environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ai_mkt}
-      POSTGRES_DB: ${POSTGRES_DB:-ai_mkt}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      ENV: prod
-      API_BASE: http://api:8000
-    depends_on:
-      db:
-        condition: service_healthy
-    command: >
-      python -m apps.api.worker
 
   redis:
     image: redis:7-alpine
