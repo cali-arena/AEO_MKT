@@ -300,7 +300,7 @@ export default function DomainsPage() {
         setRunLoading(false);
       }
     },
-    [tenantId, optimisticUpsertDomains, startEvaluation]
+    [tenantId, optimisticUpsertDomains, refresh, startEvaluation]
   );
 
   const domainsSorted = useMemo(() => {

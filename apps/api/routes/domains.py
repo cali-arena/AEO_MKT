@@ -16,7 +16,12 @@ from apps.api.services.domain_jobs import (
     get_domain_eval_job,
     get_latest_domain_job_statuses,
 )
-from apps.api.services.repo import add_eval_domain, get_latest_domain_eval_snapshots, get_latest_eval_run, list_eval_domains
+from apps.api.services.repo import (
+    add_eval_domain,
+    get_domain_aggregates_from_eval_result,
+    get_latest_eval_run,
+    list_eval_domains,
+)
 from apps.api.services.tenant_context import TenantId
 
 router = APIRouter()
@@ -54,6 +59,7 @@ class DomainRow(BaseModel):
     domain: str
     status: Literal["pending", "running", "done", "failed"]
     latest_rates: EvalMetricsRates | None = None
+    total_results: int = 0
     last_run_id: str | None = None
     last_run_created_at: str | None = None
     failure_reason: str | None = None
@@ -131,42 +137,39 @@ def _format_job_status(status: str) -> Literal["pending", "running", "done", "fa
 @router.get("/tenants/{tenant_id}/domains", response_model=DomainsListResponse)
 async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListResponse:
     tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
-    monitored = list_eval_domains(tenant)
     run = get_latest_eval_run(tenant)
-    run_id: str | None = None
-    if run is not None:
-        run_id = str(run.id)
-    snapshots = get_latest_domain_eval_snapshots(tenant)
-    per_domain: dict[str, EvalMetricsRates] = {
-        domain: EvalMetricsRates(
-            mention_rate=float(snap["mention_rate"]),
-            citation_rate=float(snap["citation_rate"]),
-            attribution_rate=float(snap["attribution_rate"]),
-            hallucination_rate=float(snap["hallucination_rate"]),
-        )
-        for domain, snap in snapshots.items()
-    }
+    run_id: str | None = str(run.id) if run is not None else None
+    aggregates = get_domain_aggregates_from_eval_result(tenant)
     domain_job_status = get_latest_domain_job_statuses(tenant)
-    all_domains = sorted(set(monitored) | set(snapshots.keys()) | set(domain_job_status.keys()))
+    agg_by_domain = {a["domain"]: a for a in aggregates}
+    for domain in domain_job_status:
+        if domain not in agg_by_domain:
+            agg_by_domain[domain] = {
+                "domain": domain,
+                "total_results": 0,
+                "mention_rate": 0.0,
+                "citation_rate": 0.0,
+                "attribution_rate": 0.0,
+                "hallucination_rate": 0.0,
+                "status": "PENDING",
+                "last_run_id": None,
+                "last_created_at": None,
+            }
     rows: list[DomainRow] = []
     pending_count = 0
     running_count = 0
     done_count = 0
     failed_count = 0
-    for domain in all_domains:
-        rates = per_domain.get(domain)
+    for domain in sorted(agg_by_domain):
+        agg = agg_by_domain[domain]
         job_status = domain_job_status.get(domain)
-        snap = snapshots.get(domain)
         if job_status == "RUNNING":
-            status: Literal["pending", "running", "done", "failed"] = _format_job_status(job_status)
-        elif snap is not None:
-            status = "failed" if snap["status"] == "FAILED" else "done"
-        elif job_status in {"FAILED", "PENDING"}:
-            status = _format_job_status(job_status)
-        elif rates is not None:
-            status = "done"
+            status: Literal["pending", "running", "done", "failed"] = "running"
         else:
-            status = "pending"
+            raw = (agg["status"] or "PENDING").upper()
+            status = "failed" if raw == "FAILED" else "done" if raw == "DONE" else "pending"
+            if job_status in {"FAILED", "PENDING"} and raw == "PENDING":
+                status = _format_job_status(job_status)
         if status == "pending":
             pending_count += 1
         elif status == "running":
@@ -175,22 +178,26 @@ async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListR
             failed_count += 1
         else:
             done_count += 1
+        latest_rates = EvalMetricsRates(
+            mention_rate=agg["mention_rate"],
+            citation_rate=agg["citation_rate"],
+            attribution_rate=agg["attribution_rate"],
+            hallucination_rate=agg["hallucination_rate"],
+        )
+        last_created = agg.get("last_created_at")
         rows.append(
             DomainRow(
                 domain=domain,
                 status=status,
-                latest_rates=rates,
-                last_run_id=(str(snap["run_id"]) if snap else None),
-                last_run_created_at=(
-                    snap["run_created_at"].isoformat()
-                    if snap and snap.get("run_created_at") is not None
-                    else None
-                ),
-                failure_reason=(snap.get("refusal_reason_summary") if snap and snap["status"] == "FAILED" else None),
+                latest_rates=latest_rates,
+                total_results=int(agg.get("total_results") or 0),
+                last_run_id=agg.get("last_run_id"),
+                last_run_created_at=last_created.isoformat() if last_created else None,
+                failure_reason=None,
             )
         )
     logger.info(
-        "domains_list tenant_id=%s domains=%s pending=%s running=%s done=%s failed=%s",
+        "domains_list tenant_id=%s total=%s pending=%s running=%s done=%s failed=%s",
         tenant,
         len(rows),
         pending_count,

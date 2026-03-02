@@ -1251,6 +1251,63 @@ def get_latest_domain_eval_snapshots(tenant_id: str | None) -> dict[str, dict[st
     return out
 
 
+def get_domain_aggregates_from_eval_result(tenant_id: str | None) -> list[dict[str, Any]]:
+    """Return per-domain aggregates from eval_domain LEFT JOIN eval_result for tenant.
+    Includes all domains from eval_domain plus any domain that has eval_result rows.
+    Status is PENDING when no eval_result rows exist, else DONE (or FAILED if all refused).
+    Rates are 0..1 floats; total_results is count of eval_result rows."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = text(
+        """
+        WITH domains AS (
+            SELECT domain, tenant_id FROM eval_domain WHERE tenant_id = :tenant_id
+            UNION
+            SELECT DISTINCT domain, tenant_id FROM eval_result WHERE tenant_id = :tenant_id
+        )
+        SELECT
+            d.domain,
+            COUNT(r.id)::int AS total_results,
+            COALESCE(AVG(CASE WHEN r.mention_ok THEN 1 ELSE 0 END)::float, 0.0) AS mention_rate,
+            COALESCE(AVG(CASE WHEN r.citation_ok THEN 1 ELSE 0 END)::float, 0.0) AS citation_rate,
+            COALESCE(AVG(CASE WHEN r.attribution_ok THEN 1 ELSE 0 END)::float, 0.0) AS attribution_rate,
+            COALESCE(AVG(CASE WHEN r.hallucination_flag THEN 1 ELSE 0 END)::float, 0.0) AS hallucination_rate,
+            CASE WHEN COUNT(r.id) = 0 THEN 'PENDING'
+                 WHEN SUM(CASE WHEN r.refused THEN 1 ELSE 0 END)::int = COUNT(r.id) THEN 'FAILED'
+                 ELSE 'DONE' END AS status,
+            (SELECT r2.run_id FROM eval_result r2
+             WHERE r2.tenant_id = d.tenant_id AND r2.domain = d.domain
+             ORDER BY r2.id DESC LIMIT 1) AS last_run_id,
+            (SELECT r3.created_at FROM eval_run r3
+             WHERE r3.tenant_id = d.tenant_id AND r3.id = (
+                 SELECT r2.run_id FROM eval_result r2
+                 WHERE r2.tenant_id = d.tenant_id AND r2.domain = d.domain
+                 ORDER BY r2.id DESC LIMIT 1
+             ) LIMIT 1) AS last_created_at
+        FROM domains d
+        LEFT JOIN eval_result r ON r.domain = d.domain AND r.tenant_id = d.tenant_id
+        WHERE d.tenant_id = :tenant_id
+        GROUP BY d.domain, d.tenant_id
+        ORDER BY d.domain
+        """
+    )
+    with get_db() as session:
+        rows = session.execute(stmt, {"tenant_id": tenant_id}).mappings().all()
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        out.append({
+            "domain": str(r["domain"]),
+            "total_results": int(r["total_results"] or 0),
+            "mention_rate": float(r["mention_rate"] or 0.0),
+            "citation_rate": float(r["citation_rate"] or 0.0),
+            "attribution_rate": float(r["attribution_rate"] or 0.0),
+            "hallucination_rate": float(r["hallucination_rate"] or 0.0),
+            "status": str(r["status"] or "PENDING").upper(),
+            "last_run_id": str(r["last_run_id"]) if r.get("last_run_id") else None,
+            "last_created_at": r.get("last_created_at"),
+        })
+    return out
+
+
 def list_eval_runs(
     tenant_id: str | None,
     date_from: date | None = None,
