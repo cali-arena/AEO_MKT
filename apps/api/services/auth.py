@@ -15,10 +15,7 @@ BEARER_TENANT_PATTERN = re.compile(r"^Bearer\s+tenant[:=](.+)$", re.IGNORECASE)
 AUTH_EXEMPT_PATH_PREFIXES = (
     "/health",
     "/docs",
-    "/redoc",
     "/openapi.json",
-    "/docs/oauth2-redirect",
-    "/static",
 )
 
 

@@ -92,7 +92,7 @@ export interface EvalMetricsLatestOut {
 
 export interface DomainListItem {
   domain: string;
-  status: "pending" | "running" | "completed";
+  status: "pending" | "running" | "done" | "failed";
   latest_rates: EvalMetricsRates | null;
 }
 
@@ -120,10 +120,10 @@ export interface DomainsEvaluateResponse {
 export interface DomainJobStatusResponse {
   job_id: string;
   tenant_id: string;
-  status: "running" | "completed" | "failed";
+  status: "pending" | "running" | "done" | "failed";
   total: number;
   completed: number;
-  error: string | null;
+  error_message: string | null;
   started_at: string;
   finished_at: string | null;
 }

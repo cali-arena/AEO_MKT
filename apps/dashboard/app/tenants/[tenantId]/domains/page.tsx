@@ -132,13 +132,13 @@ export default function DomainsPage() {
         const job = await apiFetch<DomainJobStatusResponse>(jobPath(tenantId, activeJobId), { tenantId });
         if (stopped) return;
         setBulkProgress({ done: job.completed, total: job.total });
-        if (job.status === "completed") {
+        if (job.status === "done") {
           setRunMessage({ type: "success", text: "Evaluation completed. Table is up to date." });
           setBulkProgress(null);
           setActiveJobId(null);
           await refresh();
         } else if (job.status === "failed") {
-          setRunMessage({ type: "error", text: job.error || "Evaluation failed" });
+          setRunMessage({ type: "error", text: job.error_message || "Evaluation failed" });
           setBulkProgress(null);
           setActiveJobId(null);
           await refresh();
@@ -433,7 +433,7 @@ export default function DomainsPage() {
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs text-gray-500">Eval runs automatically. Click a completed row for details.</p>
+          <p className="text-xs text-gray-500">Eval runs automatically. Click a done row for details.</p>
           <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
             {domainsSorted.length} domain{domainsSorted.length !== 1 ? "s" : ""} monitored
           </span>
@@ -491,7 +491,7 @@ export default function DomainsPage() {
             )}
             {domainsSorted.map((row) => {
               const rates = row.latest_rates;
-              const isCompleted = row.status === "completed" && rates !== null;
+              const isCompleted = row.status === "done" && rates !== null;
               return (
                 <motion.tr
                   key={row.domain}
@@ -526,8 +526,20 @@ export default function DomainsPage() {
                   ) : (
                     <>
                       <td className="px-3 py-2">
-                        <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                          {row.status === "pending" ? "Pending" : "Running..."}
+                        <span
+                          className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
+                            row.status === "failed"
+                              ? "bg-rose-100 text-rose-800"
+                              : row.status === "pending"
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-blue-100 text-blue-800"
+                          }`}
+                        >
+                          {row.status === "failed"
+                            ? "Failed"
+                            : row.status === "pending"
+                              ? "Pending"
+                              : "Running..."}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-500">-</td>

@@ -5,7 +5,7 @@ import os
 import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -44,6 +44,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Keep CORS middleware outermost so preflight is handled before auth checks.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
@@ -59,6 +60,11 @@ app.add_middleware(
     ],
 )
 app.middleware("http")(auth_middleware)
+
+
+@app.options("/{full_path:path}")
+async def options_preflight(_full_path: str) -> Response:
+    return Response(status_code=200)
 
 
 def _cors_headers_for_request(origin: str | None) -> dict[str, str]:

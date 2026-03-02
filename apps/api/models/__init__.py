@@ -5,6 +5,7 @@ from apps.api.models.answer_cache import AnswerCache
 from apps.api.models.base import Base
 from apps.api.models.ec_embedding import ECEmbedding
 from apps.api.models.ec_version import ECVersion
+from apps.api.models.domain_eval_job import DomainEvalJob
 from apps.api.models.entity import Entity
 from apps.api.models.entity_mention import EntityMention
 from apps.api.models.eval_domain import EvalDomain
@@ -24,6 +25,7 @@ __all__ = [
     "Base",
     "ECEmbedding",
     "ECVersion",
+    "DomainEvalJob",
     "Entity",
     "EntityMention",
     "EvalDomain",
