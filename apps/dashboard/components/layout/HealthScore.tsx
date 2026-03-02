@@ -8,6 +8,7 @@ import { Activity } from "lucide-react";
 
 interface HealthScoreProps {
   basePath: string;
+  tenantId: string;
 }
 
 function scoreFromComposite(composite: number): number {
@@ -15,13 +16,14 @@ function scoreFromComposite(composite: number): number {
   return Math.min(100, Math.round(composite));
 }
 
-export function HealthScore({ basePath }: HealthScoreProps) {
+export function HealthScore({ basePath, tenantId }: HealthScoreProps) {
   const [score, setScore] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!tenantId) return;
     let cancelled = false;
-    apiFetch<MetricsLatestResponse>("/metrics/latest")
+    apiFetch<MetricsLatestResponse>("/metrics/latest", { tenantId })
       .then((res) => {
         if (cancelled) return;
         setScore(scoreFromComposite(res.kpis.composite_index));
@@ -32,8 +34,10 @@ export function HealthScore({ basePath }: HealthScoreProps) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
 
   const status = score == null ? "neutral" : score >= 70 ? "good" : score >= 40 ? "warn" : "bad";
   const dotColor = status === "good" ? "bg-emerald-500" : status === "warn" ? "bg-amber-500" : "bg-rose-500";

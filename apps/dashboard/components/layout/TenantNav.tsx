@@ -23,9 +23,10 @@ const NAV_ITEMS = [
 
 interface TenantNavProps {
   basePath: string;
+  tenantId: string;
 }
 
-export function TenantNav({ basePath }: TenantNavProps) {
+export function TenantNav({ basePath, tenantId }: TenantNavProps) {
   const pathname = usePathname();
 
   return (
@@ -64,7 +65,7 @@ export function TenantNav({ basePath }: TenantNavProps) {
           );
         })}
       </nav>
-      <HealthScore basePath={basePath} />
+      <HealthScore basePath={basePath} tenantId={tenantId} />
     </aside>
   );
 }

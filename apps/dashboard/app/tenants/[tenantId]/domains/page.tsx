@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
 import { MetricBadge } from "@/components/ui/MetricBadge";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, ApiError } from "@/lib/api";
 import type {
   DomainJobStatusResponse,
   DomainsCreateResponse,
@@ -94,7 +94,13 @@ export default function DomainsPage() {
         setError(null);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to load domains");
+        const msg =
+          err instanceof ApiError && err.status === 401
+            ? "Missing auth header. Log in or set Authorization: Bearer tenant:<id>."
+            : err instanceof Error
+              ? err.message
+              : "Failed to load domains";
+        setError(msg);
       });
   }, [tenantId]);
 
@@ -124,23 +130,35 @@ export default function DomainsPage() {
     const poll = async () => {
       try {
         const job = await apiFetch<DomainJobStatusResponse>(jobPath(tenantId, activeJobId), { tenantId });
-        await refresh();
+        if (stopped) return;
         setBulkProgress({ done: job.completed, total: job.total });
         if (job.status === "completed") {
           setRunMessage({ type: "success", text: "Evaluation completed. Table is up to date." });
           setBulkProgress(null);
           setActiveJobId(null);
+          await refresh();
         } else if (job.status === "failed") {
           setRunMessage({ type: "error", text: job.error || "Evaluation failed" });
           setBulkProgress(null);
           setActiveJobId(null);
+          await refresh();
+        } else {
+          await refresh();
         }
       } catch (err) {
         if (!stopped) {
-          setRunMessage({
-            type: "error",
-            text: err instanceof Error ? err.message : "Failed to poll evaluation job",
-          });
+          const is404 = err instanceof ApiError && err.status === 404;
+          if (is404) {
+            setRunMessage({
+              type: "error",
+              text: "Job no longer found (server may have restarted). Refresh the page.",
+            });
+          } else {
+            setRunMessage({
+              type: "error",
+              text: err instanceof Error ? err.message : "Failed to poll evaluation job",
+            });
+          }
           setBulkProgress(null);
           setActiveJobId(null);
         }

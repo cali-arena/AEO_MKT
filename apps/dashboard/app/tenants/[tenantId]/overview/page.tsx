@@ -36,7 +36,7 @@ export default function OverviewPage() {
     setLoading(true);
     setError(null);
 
-    apiFetch<MetricsLatestResponse>("/metrics/latest")
+    apiFetch<MetricsLatestResponse>("/metrics/latest", { tenantId })
       .then((res) => {
         if (!cancelled) {
           setData(res);

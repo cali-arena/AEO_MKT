@@ -8,15 +8,17 @@ import { AlertTriangle, X } from "lucide-react";
 
 interface NotificationBannerProps {
   basePath: string;
+  tenantId: string;
 }
 
-export function NotificationBanner({ basePath }: NotificationBannerProps) {
+export function NotificationBanner({ basePath, tenantId }: NotificationBannerProps) {
   const [dismissed, setDismissed] = useState(false);
-  const [alerts, setAlerts] = useState< string[]>([]);
+  const [alerts, setAlerts] = useState<string[]>([]);
 
   useEffect(() => {
+    if (!tenantId) return;
     let cancelled = false;
-    apiFetch<MetricsLatestResponse>("/metrics/latest")
+    apiFetch<MetricsLatestResponse>("/metrics/latest", { tenantId })
       .then((res) => {
         if (cancelled) return;
         const list: string[] = [];
@@ -32,8 +34,10 @@ export function NotificationBanner({ basePath }: NotificationBannerProps) {
         setAlerts(list);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
 
   if (dismissed || alerts.length === 0) return null;
 

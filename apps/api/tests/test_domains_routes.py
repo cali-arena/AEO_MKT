@@ -76,7 +76,11 @@ def test_evaluate_domains_returns_job_and_job_status() -> None:
             json={"domains": ["one.com"]},
         )
         assert start.status_code == 202
-        job_id = start.json()["job_id"]
+        body = start.json()
+        assert "job_id" in body
+        assert "status_url" in body
+        assert body["status_url"] == f"/tenants/{tenant}/jobs/{body['job_id']}"
+        job_id = body["job_id"]
 
         status = client.get(f"/tenants/{tenant}/jobs/{job_id}", headers=_auth(tenant))
         assert status.status_code == 200

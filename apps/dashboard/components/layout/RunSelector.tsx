@@ -25,15 +25,20 @@ export function RunSelector() {
   const [open, setOpen] = useState(false);
   const currentRunId = searchParams.get("run_id");
 
+  const tenantId = pathname?.match(/^\/tenants\/([^/]+)/)?.[1] ?? undefined;
+
   useEffect(() => {
+    if (!tenantId) return;
     let cancelled = false;
-    apiFetch<EvalRunsResponse>("/eval/runs?limit=15")
+    apiFetch<EvalRunsResponse>("/eval/runs?limit=15", { tenantId })
       .then((res) => {
         if (!cancelled) setRuns(res.runs);
       })
       .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantId]);
 
   const handleSelect = (runId: string) => {
     setOpen(false);

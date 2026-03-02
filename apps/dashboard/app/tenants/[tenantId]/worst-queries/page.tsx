@@ -63,7 +63,7 @@ export default function WorstQueriesPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch<EvalRunsResponse>("/eval/runs?limit=15")
+    apiFetch<EvalRunsResponse>("/eval/runs?limit=15", { tenantId })
       .then((runsRes) => {
         if (cancelled) return;
         const runs = runsRes.runs;
@@ -82,7 +82,7 @@ export default function WorstQueriesPage() {
         q.set("failed_only", String(failedOnlyParam !== "false"));
         q.set("refused_only", String(refusedOnlyParam === "true"));
         q.set("limit", "500");
-        return apiFetch<EvalRunResultsResponse>(`/eval/runs/${run.run_id}/results?${q}`);
+        return apiFetch<EvalRunResultsResponse>(`/eval/runs/${run.run_id}/results?${q}`, { tenantId });
       })
       .then((resultsRes) => {
         if (cancelled || !resultsRes) return;

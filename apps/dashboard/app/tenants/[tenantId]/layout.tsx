@@ -17,10 +17,10 @@ export default async function TenantLayout({
   return (
     <AuthGuard>
       <div className="min-h-screen bg-surface dark:bg-slate-900">
-        <TenantNav basePath={base} />
+        <TenantNav basePath={base} tenantId={decoded} />
         <div className="flex flex-1 flex-col pl-60">
           <Header tenantId={decoded} />
-          <NotificationBanner basePath={base} />
+          <NotificationBanner basePath={base} tenantId={decoded} />
           <main className="flex-1 p-6">
             <div className="mx-auto max-w-6xl">{children}</div>
           </main>

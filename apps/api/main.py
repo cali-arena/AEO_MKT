@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -14,16 +15,20 @@ from apps.api.db import ensure_tables
 from apps.api.routes import answer, domains, eval as eval_routes, health, leakage, metrics, monitor, retrieve
 from apps.api.services.auth import auth_middleware
 
-# CORS: allow only specified origins (no wildcard).
-# Env: CORS_ALLOW_ORIGINS="https://your-vercel-app.vercel.app,http://localhost:3000" (comma-separated).
-# If not set, default to localhost only for local dev.
-CORS_DEFAULT_ORIGINS = ["http://localhost:3000", "http://localhost:8501"]
+# CORS: allow explicit trusted origins + Vercel preview domains.
+# Env: CORS_ALLOW_ORIGINS="https://dashboard.citarionai.com,https://your-app.vercel.app"
+CORS_DEFAULT_ORIGINS = [
+    "https://dashboard.citarionai.com",
+    "http://localhost:3000",
+    "http://localhost:8501",
+]
 _cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", "").strip()
 CORS_ORIGINS = (
     [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
     if _cors_origins_raw
     else CORS_DEFAULT_ORIGINS
 )
+CORS_ORIGIN_REGEX = os.getenv("CORS_ALLOW_ORIGIN_REGEX", r"^https://.*\.vercel\.app$")
 
 
 @asynccontextmanager
@@ -39,13 +44,28 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=CORS_ORIGIN_REGEX,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "authorization",
+        "Content-Type",
+        "content-type",
+        "X-Tenant",
+        "x-tenant",
+    ],
+)
 app.middleware("http")(auth_middleware)
 
 
 def _cors_headers_for_request(origin: str | None) -> dict[str, str]:
     """Return CORS headers if origin is allowed (so error responses still satisfy CORS)."""
-    if origin and origin in CORS_ORIGINS:
+    if origin and (
+        origin in CORS_ORIGINS or (CORS_ORIGIN_REGEX and re.match(CORS_ORIGIN_REGEX, origin))
+    ):
         return {"Access-Control-Allow-Origin": origin}
     return {}
 

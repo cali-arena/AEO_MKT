@@ -35,7 +35,7 @@ export default function LeakagePage() {
     setLoading(true);
     setError(null);
 
-    apiFetch<LeakageLatestResponse>("/monitor/leakage/latest")
+    apiFetch<LeakageLatestResponse>("/monitor/leakage/latest", { tenantId })
       .then((res) => {
         if (!cancelled) setData(res);
       })

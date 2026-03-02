@@ -12,6 +12,15 @@ from starlette.responses import JSONResponse
 
 # "Bearer tenant:A" or "Bearer tenant=B"
 BEARER_TENANT_PATTERN = re.compile(r"^Bearer\s+tenant[:=](.+)$", re.IGNORECASE)
+AUTH_EXEMPT_PATH_PREFIXES = (
+    "/health",
+    "/docs",
+    "/redoc",
+    "/openapi.json",
+    "/docs/oauth2-redirect",
+    "/static",
+    "/metrics",
+)
 
 
 def _is_production() -> bool:
@@ -72,9 +81,10 @@ async def auth_middleware(request: Request, call_next):
     """Extract tenant_id from Authorization header. X-Tenant-Debug allowed only when ENV=test and ENABLE_TEST_TENANT_HEADER=1.
     Never reads tenant_id from query params or body. /health is exempt (no auth required). OPTIONS (CORS preflight) must pass so the browser gets CORS headers."""
 
+    path = request.url.path.rstrip("/") or "/"
     if request.method == "OPTIONS":
         return await call_next(request)
-    if request.url.path.rstrip("/") == "/health":
+    if any(path == p or path.startswith(f"{p}/") for p in AUTH_EXEMPT_PATH_PREFIXES):
         return await call_next(request)
 
     tenant_id: str | None | Literal[False] = None

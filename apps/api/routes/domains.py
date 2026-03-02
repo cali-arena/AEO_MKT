@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 from dataclasses import dataclass, field
@@ -9,6 +10,8 @@ from datetime import datetime, timezone
 from typing import Literal
 from urllib.parse import unquote
 from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -35,6 +38,7 @@ class _JobState:
     total: int = 0
     completed: int = 0
     error: str | None = None
+    run_id: str | None = None
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     finished_at: str | None = None
 
@@ -61,6 +65,8 @@ class DomainsEvaluateResponse(BaseModel):
     status: str
     message: str
     job_id: str
+    status_url: str
+    run_id: str | None = None
     started_domains: list[str]
 
 
@@ -150,28 +156,43 @@ def _start_job(tenant_id: str, domains: list[str]) -> _JobState:
         _JOBS[job_id] = state
 
     def _runner() -> None:
+        start = datetime.now(timezone.utc)
+        domain_count = len(domains) if domains else 1
+        logger.info("job_start job_id=%s tenant_id=%s domain_count=%s", job_id, tenant_id, domain_count)
         try:
             if domains:
                 for domain in domains:
                     result = run_eval_sync(tenant_id, domain)
                     with _JOBS_LOCK:
                         state.completed += 1
+                        if result.get("run_id"):
+                            state.run_id = str(result.get("run_id"))
                         if result.get("ok") is False and state.error is None:
                             state.error = str(result.get("error") or "Evaluation failed")
             else:
                 result = run_eval_sync(tenant_id, None)
                 with _JOBS_LOCK:
                     state.completed = 1
+                    if result.get("run_id"):
+                        state.run_id = str(result.get("run_id"))
                     if result.get("ok") is False:
                         state.error = str(result.get("error") or "Evaluation failed")
             with _JOBS_LOCK:
                 state.status = "failed" if state.error else "completed"
                 state.finished_at = datetime.now(timezone.utc).isoformat()
+            duration_sec = (datetime.now(timezone.utc) - start).total_seconds()
+            logger.info(
+                "job_end job_id=%s tenant_id=%s status=%s duration_sec=%.1f completed=%s total=%s",
+                job_id, tenant_id, state.status, duration_sec, state.completed, state.total,
+            )
+            if state.error:
+                logger.warning("job_failed job_id=%s error=%s", job_id, state.error)
         except Exception as exc:
             with _JOBS_LOCK:
                 state.status = "failed"
                 state.error = str(exc)
                 state.finished_at = datetime.now(timezone.utc).isoformat()
+            logger.exception("job_exception job_id=%s tenant_id=%s", job_id, tenant_id)
 
     threading.Thread(target=_runner, daemon=True).start()
     return state
@@ -247,10 +268,13 @@ async def evaluate_domains(
         for domain in normalized:
             add_eval_domain(tenant, domain)
     state = _start_job(tenant, normalized)
+    status_url = f"/tenants/{tenant}/jobs/{state.job_id}"
     return DomainsEvaluateResponse(
         status="started",
         message="Evaluation started",
         job_id=state.job_id,
+        status_url=status_url,
+        run_id=state.run_id,
         started_domains=normalized,
     )
 

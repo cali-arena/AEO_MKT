@@ -112,6 +112,8 @@ export interface DomainsEvaluateResponse {
   status: string;
   message: string;
   job_id: string;
+  status_url: string;
+  run_id: string | null;
   started_domains: string[];
 }
 

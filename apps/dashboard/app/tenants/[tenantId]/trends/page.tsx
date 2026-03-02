@@ -54,7 +54,7 @@ export default function TrendsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch<MetricsTrendsResponse>(`/metrics/trends?days=${days}`)
+    apiFetch<MetricsTrendsResponse>(`/metrics/trends?days=${days}`, { tenantId })
       .then((res) => {
         if (!cancelled) {
           const points = (res.points ?? []).map((p) =>

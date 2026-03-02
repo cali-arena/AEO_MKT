@@ -192,6 +192,35 @@ docker compose -f infra/docker-compose.yml --env-file .env up -d api
 
 ---
 
+### Ver logs (confirmar que está tudo a funcionar)
+
+**API (Docker):**
+```bash
+cd ~/AEO_MKT
+docker compose -f infra/docker-compose.yml --env-file .env logs api --tail 100
+# seguir em tempo real:
+docker compose -f infra/docker-compose.yml --env-file .env logs -f api
+```
+
+**Túnel Cloudflare:**
+```bash
+sudo journalctl -u cloudflared-tunnel -n 50 --no-pager
+# seguir em tempo real:
+sudo journalctl -u cloudflared-tunnel -f
+```
+
+**Postgres (se precisar):**
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env logs postgres --tail 50
+```
+
+**Estado dos containers:**
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env ps
+```
+
+---
+
 ## Opção 2: Domínio + Caddy no VM (URL fixa, recomendado para produção)
 
 Você precisa de um **domínio** (ex.: `api.seudominio.com`) apontando para o IP do VM (`89.167.81.215`).
