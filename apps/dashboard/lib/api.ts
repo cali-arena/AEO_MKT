@@ -27,6 +27,10 @@ export class ApiError extends Error {
   }
 }
 
+export type ApiFetchInit = RequestInit & {
+  tenantId?: string;
+};
+
 async function getToken(): Promise<string | null> {
   if (typeof window !== "undefined") {
     return getTokenClient();
@@ -36,13 +40,19 @@ async function getToken(): Promise<string | null> {
 
 export async function apiFetch<T>(
   path: string,
-  init?: RequestInit
+  init?: ApiFetchInit
 ): Promise<T> {
+  const tenantId = init?.tenantId;
   const token = await getToken();
+  const authHeader = token
+    ? `Bearer ${token}`
+    : tenantId
+      ? `Bearer tenant:${tenantId}`
+      : undefined;
   const headers: Record<string, string> = {
     Accept: "application/json",
     "Content-Type": "application/json",
-    ...(token && { Authorization: `Bearer ${token}` }),
+    ...(authHeader && { Authorization: authHeader }),
   };
   if (init?.headers) {
     const h = init.headers;
@@ -55,7 +65,9 @@ export async function apiFetch<T>(
     }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  const requestInit: RequestInit = { ...init };
+  delete (requestInit as { tenantId?: string }).tenantId;
+  const res = await fetch(`${API_BASE}${path}`, { ...requestInit, headers });
 
   if (!res.ok) {
     const body = await res.json().catch(() => null);

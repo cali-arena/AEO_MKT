@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 logging.basicConfig(level=logging.INFO)
 
 from apps.api.db import ensure_tables
-from apps.api.routes import answer, eval as eval_routes, health, leakage, metrics, monitor, retrieve
+from apps.api.routes import answer, domains, eval as eval_routes, health, leakage, metrics, monitor, retrieve
 from apps.api.services.auth import auth_middleware
 
 # CORS: allow only specified origins (no wildcard).
@@ -65,6 +65,7 @@ async def add_cors_to_errors(request: Request, exc: Exception):
 app.include_router(health.router, tags=["health"])
 app.include_router(retrieve.router, prefix="/retrieve", tags=["retrieve"])
 app.include_router(answer.router, tags=["answer"])
+app.include_router(domains.router, tags=["domains"])
 app.include_router(eval_routes.router, prefix="/eval", tags=["eval"])
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 app.include_router(monitor.router, prefix="/monitor", tags=["monitor"])

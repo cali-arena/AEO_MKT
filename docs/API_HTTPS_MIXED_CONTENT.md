@@ -126,11 +126,13 @@ cd /root/AEO_MKT
 nano .env
 ```
 
-Deixe a linha assim (pode adicionar a URL do túnel se quiser; para Mixed Content não é obrigatório, CORS é para o Vercel):
+Deixe a linha com **todas** as origens do dashboard que você usa (produção e preview do git-main). Exemplo — inclua exatamente a URL que aparece no navegador quando você abre o dashboard (sem barra no final):
 
 ```env
-CORS_ALLOW_ORIGINS=https://aeo-mkt.vercel.app,https://aeo-efh97avkg-cali-arenas-projects.vercel.app,http://localhost:3000
+CORS_ALLOW_ORIGINS=https://aeo-mkt.vercel.app,https://aeo-mkt-git-main-cali-arenas-projects.vercel.app,https://aeo-efh97avkg-cali-arenas-projects.vercel.app,http://localhost:3000
 ```
+
+Se você vê "blocked by CORS policy" no console, a origem que está na barra de endereço do navegador **tem** que estar nesta lista.
 
 Salvar: `Ctrl+O`, Enter, `Ctrl+X`. Reiniciar a API:
 
@@ -156,6 +158,8 @@ No Vercel: **Deployments** → menu **⋮** no último deploy → **Redeploy**. 
 3. **Cache** — Depois do redeploy, faça hard refresh (Ctrl+F5) ou abra em aba anônima.
 4. **Conferir o que o site está usando** — Abra a página de health do dashboard (ex.: `https://seu-dashboard.vercel.app/health`). Se der erro, ela mostra o "Current API base". Se aparecer "(not set)", o build foi feito sem a variável; refaça o redeploy após salvar a env.
 5. **Túnel e CORS** — No VM: túnel rodando (`sudo systemctl status cloudflared-tunnel`) e no `.env` da API a origem do dashboard em `CORS_ALLOW_ORIGINS`. Reinicie a API após mudar o `.env`: `docker compose -f infra/docker-compose.yml --env-file .env up -d api`.
+
+**Se o console mostrar "blocked by CORS policy" / "No Access-Control-Allow-Origin":** a API não está autorizando a origem do seu dashboard. No VM, edite o `.env` e inclua **exatamente** a URL que aparece na barra de endereço quando você abre o dashboard (ex.: `https://aeo-mkt-git-main-cali-arenas-projects.vercel.app`), em `CORS_ALLOW_ORIGINS`, separada por vírgula das demais. Depois: `docker compose -f infra/docker-compose.yml --env-file .env up -d api`.
 
 ### 8. Testar
 

@@ -90,6 +90,42 @@ export interface EvalMetricsLatestOut {
   per_domain: Record<string, EvalMetricsRates>;
 }
 
+export interface DomainListItem {
+  domain: string;
+  status: "pending" | "running" | "completed";
+  latest_rates: EvalMetricsRates | null;
+}
+
+export interface DomainsListResponse {
+  tenant_id: string;
+  run_id: string | null;
+  domains: DomainListItem[];
+}
+
+export interface DomainsCreateResponse {
+  status: string;
+  created: string[];
+  existing: string[];
+}
+
+export interface DomainsEvaluateResponse {
+  status: string;
+  message: string;
+  job_id: string;
+  started_domains: string[];
+}
+
+export interface DomainJobStatusResponse {
+  job_id: string;
+  tenant_id: string;
+  status: "running" | "completed" | "failed";
+  total: number;
+  completed: number;
+  error: string | null;
+  started_at: string;
+  finished_at: string | null;
+}
+
 export interface LeakageLatestResponse {
   tenant_id: string;
   ok: boolean;

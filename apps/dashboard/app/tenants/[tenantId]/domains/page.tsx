@@ -2,74 +2,100 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { apiFetch, ApiError } from "@/lib/api";
-import type { EvalMetricsLatestOut, EvalMetricsRates } from "@/lib/types";
-import { MetricBadge } from "@/components/ui/MetricBadge";
-import { DomainDrawer } from "@/components/domains/DomainDrawer";
-import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { motion } from "framer-motion";
 
-function loadData() {
-  return apiFetch<EvalMetricsLatestOut>("/eval/metrics/latest");
+import { DomainDrawer } from "@/components/domains/DomainDrawer";
+import { MetricBadge } from "@/components/ui/MetricBadge";
+import { apiFetch } from "@/lib/api";
+import type {
+  DomainJobStatusResponse,
+  DomainsCreateResponse,
+  DomainsEvaluateResponse,
+  DomainsListResponse,
+  EvalMetricsRates,
+} from "@/lib/types";
+
+type SortKey = keyof EvalMetricsRates | "domain";
+
+const DOMAIN_REGEX =
+  /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
+
+function normalizeDomain(raw: string): string | null {
+  const candidate = raw
+    .trim()
+    .toLowerCase()
+    .replace(/\\/g, "/")
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//i, "")
+    .split("/")[0]
+    .split("?")[0]
+    .split("#")[0]
+    .split("@")
+    .pop()
+    ?.split(":")[0]
+    .replace(/^\.+|\.+$/g, "");
+  if (!candidate || !DOMAIN_REGEX.test(candidate)) return null;
+  return candidate;
+}
+
+function parseDomains(input: string): { valid: string[]; invalid: string[] } {
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  const invalid: string[] = [];
+  for (const token of input.split(/[\n,;]+/)) {
+    const trimmed = token.trim();
+    if (!trimmed) continue;
+    const normalized = normalizeDomain(trimmed);
+    if (!normalized) {
+      invalid.push(trimmed);
+      continue;
+    }
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    valid.push(normalized);
+  }
+  return { valid, invalid };
+}
+
+function domainsPath(tenantId: string): string {
+  return `/tenants/${encodeURIComponent(tenantId)}/domains`;
+}
+
+function jobPath(tenantId: string, jobId: string): string {
+  return `/tenants/${encodeURIComponent(tenantId)}/jobs/${encodeURIComponent(jobId)}`;
+}
+
+async function loadDomains(tenantId: string): Promise<DomainsListResponse> {
+  return apiFetch<DomainsListResponse>(domainsPath(tenantId), { tenantId });
 }
 
 export default function DomainsPage() {
   const params = useParams();
   const tenantId = params?.tenantId as string | undefined;
-  const [data, setData] = useState<EvalMetricsLatestOut | null>(null);
+
+  const [data, setData] = useState<DomainsListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState(false);
   const [runMessage, setRunMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
-  const [evalScope, setEvalScope] = useState<string>("");
-  const [domainInput, setDomainInput] = useState<string>("");
-  const [sortKey, setSortKey] = useState<keyof EvalMetricsRates | "domain">("domain");
+  const [domainInput, setDomainInput] = useState("");
+  const [evalScope, setEvalScope] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("domain");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
-  const [addingBulk, setAddingBulk] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  const [pendingDomains, setPendingDomains] = useState<string[]>([]);
-
-  const domainsSorted = useMemo(() => {
-    const perDomain = data?.per_domain;
-    if (!perDomain) return [];
-    const entries = Object.entries(perDomain);
-    return entries.sort(([nameA, ratesA], [nameB, ratesB]) => {
-      let a: string | number, b: string | number;
-      if (sortKey === "domain") {
-        a = nameA;
-        b = nameB;
-      } else {
-        a = ratesA[sortKey];
-        b = ratesB[sortKey];
-      }
-      const cmp = typeof a === "string" ? a.localeCompare(b as string) : (a as number) - (b as number);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [data?.per_domain, sortKey, sortDir]);
-
-  const toggleSort = useCallback((key: keyof EvalMetricsRates | "domain") => {
-    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }, [sortKey]);
 
   const refresh = useCallback(() => {
-    if (!tenantId) return;
-    setLoading(true);
-    loadData()
-      .then(setData)
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 404) {
-          setData(null);
-          setError(null);
-        } else {
-          setError(err instanceof Error ? err.message : "Failed to load domains");
-        }
+    if (!tenantId) return Promise.resolve();
+    return loadDomains(tenantId)
+      .then((res) => {
+        setData(res);
+        setError(null);
       })
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load domains");
+      });
   }, [tenantId]);
 
   useEffect(() => {
@@ -77,19 +103,12 @@ export default function DomainsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadData()
+    loadDomains(tenantId)
       .then((res) => {
         if (!cancelled) setData(res);
       })
       .catch((err) => {
-        if (!cancelled) {
-          if (err instanceof ApiError && err.status === 404) {
-            setData(null);
-            setError(null);
-          } else {
-            setError(err instanceof Error ? err.message : "Failed to load domains");
-          }
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load domains");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -99,119 +118,181 @@ export default function DomainsPage() {
     };
   }, [tenantId]);
 
+  useEffect(() => {
+    if (!tenantId || !activeJobId) return;
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const job = await apiFetch<DomainJobStatusResponse>(jobPath(tenantId, activeJobId), { tenantId });
+        await refresh();
+        setBulkProgress({ done: job.completed, total: job.total });
+        if (job.status === "completed") {
+          setRunMessage({ type: "success", text: "Evaluation completed. Table is up to date." });
+          setBulkProgress(null);
+          setActiveJobId(null);
+        } else if (job.status === "failed") {
+          setRunMessage({ type: "error", text: job.error || "Evaluation failed" });
+          setBulkProgress(null);
+          setActiveJobId(null);
+        }
+      } catch (err) {
+        if (!stopped) {
+          setRunMessage({
+            type: "error",
+            text: err instanceof Error ? err.message : "Failed to poll evaluation job",
+          });
+          setBulkProgress(null);
+          setActiveJobId(null);
+        }
+      }
+    };
+    poll();
+    const interval = window.setInterval(poll, 2500);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [tenantId, activeJobId, refresh]);
+
+  const optimisticUpsertDomains = useCallback(
+    (domains: string[]) => {
+      if (!tenantId || domains.length === 0) return;
+      setData((prev) => {
+        const current: DomainsListResponse = prev ?? { tenant_id: tenantId, run_id: null, domains: [] };
+        const map = new Map(current.domains.map((row) => [row.domain, row]));
+        for (const domain of domains) {
+          const existing = map.get(domain);
+          map.set(domain, {
+            domain,
+            status: "running",
+            latest_rates: existing?.latest_rates ?? null,
+          });
+        }
+        return {
+          ...current,
+          domains: Array.from(map.values()),
+        };
+      });
+    },
+    [tenantId]
+  );
+
+  const startEvaluation = useCallback(
+    async (domains: string[] | null, successMessage: string) => {
+      if (!tenantId) return;
+      const payload = domains ? { domains } : {};
+      const res = await apiFetch<DomainsEvaluateResponse>(`${domainsPath(tenantId)}/evaluate`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        tenantId,
+      });
+      setRunMessage({ type: "success", text: successMessage || res.message });
+      setActiveJobId(res.job_id);
+    },
+    [tenantId]
+  );
+
+  const evaluateDomains = useCallback(async () => {
+    if (!tenantId) return;
+    const { valid, invalid } = parseDomains(domainInput);
+    if (valid.length === 0) {
+      setRunMessage({
+        type: "error",
+        text: invalid.length > 0 ? `Invalid domain(s): ${invalid.join(", ")}` : "Enter at least one domain",
+      });
+      return;
+    }
+    setRunLoading(true);
+    setRunMessage(null);
+    optimisticUpsertDomains(valid);
+    try {
+      await apiFetch<DomainsCreateResponse>(domainsPath(tenantId), {
+        method: "POST",
+        body: JSON.stringify({ domains: valid }),
+        tenantId,
+      });
+      await startEvaluation(
+        valid,
+        `Added ${valid.length} domain(s). Evaluation is running and the table will update automatically.`
+      );
+      setDomainInput("");
+      if (invalid.length > 0) {
+        setRunMessage({
+          type: "success",
+          text: `Added ${valid.length} domain(s). Ignored invalid entries: ${invalid.join(", ")}.`,
+        });
+      }
+      await refresh();
+    } catch (err) {
+      setRunMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to add and evaluate domains",
+      });
+      await refresh();
+      setBulkProgress(null);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [tenantId, domainInput, optimisticUpsertDomains, refresh, startEvaluation]);
+
   const runEval = useCallback(
-    (domain: string | null) => {
+    async (domain: string | null) => {
       if (!tenantId) return;
       setRunLoading(true);
       setRunMessage(null);
-      apiFetch<{ status: string; message: string }>("/eval/run", {
-        method: "POST",
-        body: JSON.stringify(domain ? { domain } : {}),
-      })
-        .then((res) => {
-          setRunMessage({ type: "success", text: res.message });
-          setTimeout(refresh, 2000);
-        })
-        .catch((err) => {
-          setRunMessage({
-            type: "error",
-            text: err instanceof Error ? err.message : "Failed to start evaluation",
-          });
-        })
-        .finally(() => setRunLoading(false));
+      if (domain) {
+        optimisticUpsertDomains([domain]);
+      }
+      try {
+        await startEvaluation(
+          domain ? [domain] : null,
+          domain
+            ? `Evaluation started for ${domain}.`
+            : "Evaluation started for all monitored domains."
+        );
+      } catch (err) {
+        setRunMessage({
+          type: "error",
+          text: err instanceof Error ? err.message : "Failed to start evaluation",
+        });
+      } finally {
+        setRunLoading(false);
+      }
     },
-    [tenantId, refresh]
+    [tenantId, optimisticUpsertDomains, startEvaluation]
   );
 
-  const parseDomainList = useCallback((text: string): string[] => {
-    return Array.from(
-      new Set(
-        text
-          .split(/[\n,;]+/)
-          .map((d) => d.trim().toLowerCase())
-          .filter((d) => d.length > 0)
-      )
-    );
-  }, []);
-
-  const scheduleRefreshPoll = useCallback(() => {
-    refresh();
-    const t2 = window.setTimeout(() => refresh(), 5000);
-    const t3 = window.setTimeout(() => refresh(), 20000);
-    const t4 = window.setTimeout(() => refresh(), 60000);
-    return () => {
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-    };
-  }, [refresh]);
-
-  useEffect(() => {
-    const perDomain = data?.per_domain;
-    if (!perDomain) return;
-    setPendingDomains((prev) => prev.filter((d) => !(d in perDomain)));
-  }, [data?.per_domain]);
-
-  const evaluateDomains = useCallback(async () => {
-    const list = parseDomainList(domainInput);
-    if (!tenantId || list.length === 0) return;
-    setRunMessage(null);
-    if (list.length === 1) {
-      setRunLoading(true);
-      apiFetch<{ status: string; message: string }>("/eval/domains", {
-        method: "POST",
-        body: JSON.stringify({ domain: list[0] }),
-      })
-        .then(() => {
-          setRunMessage({
-            type: "success",
-            text: "Domain added. Eval is running — the table will update in 1–2 min when it finishes, or refresh the page.",
-          });
-          setDomainInput("");
-          refresh();
-          scheduleRefreshPoll();
-        })
-        .catch((err) => {
-          setRunMessage({
-            type: "error",
-            text: err instanceof Error ? err.message : "Failed to add domain",
-          });
-        })
-        .finally(() => setRunLoading(false));
-      return;
-    }
-    setAddingBulk(true);
-    setBulkProgress({ done: 0, total: list.length });
-    let lastError: string | null = null;
-    for (let i = 0; i < list.length; i++) {
-      setBulkProgress({ done: i, total: list.length });
-      try {
-        await apiFetch<{ status: string; message: string }>("/eval/domains", {
-          method: "POST",
-          body: JSON.stringify({ domain: list[i] }),
-        });
-      } catch (err) {
-        lastError = err instanceof Error ? err.message : "Failed to add domain";
+  const domainsSorted = useMemo(() => {
+    const rows = [...(data?.domains ?? [])];
+    return rows.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "domain") {
+        cmp = a.domain.localeCompare(b.domain);
+      } else {
+        const left = a.latest_rates?.[sortKey] ?? -1;
+        const right = b.latest_rates?.[sortKey] ?? -1;
+        cmp = left - right;
       }
-      if (i < list.length - 1) await new Promise((r) => setTimeout(r, 400));
-    }
-    setBulkProgress({ done: list.length, total: list.length });
-    setRunMessage(
-      lastError
-        ? { type: "error", text: `Added ${list.length - 1}; last failed: ${lastError}` }
-        : {
-            type: "success",
-            text: `Added ${list.length} domain(s). Eval is running — the table will update in 1–2 min when the run completes, or refresh the page.`,
-          }
-    );
-    setDomainInput("");
-    scheduleRefreshPoll();
-    setTimeout(() => {
-      setAddingBulk(false);
-      setBulkProgress(null);
-      refresh();
-    }, 1500);
-  }, [tenantId, domainInput, parseDomainList, refresh, scheduleRefreshPoll]);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [data?.domains, sortDir, sortKey]);
+
+  const toggleSort = useCallback(
+    (key: SortKey) => {
+      if (sortKey === key) {
+        setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+        return;
+      }
+      setSortKey(key);
+      setSortDir("asc");
+    },
+    [sortKey]
+  );
+
+  const drawerRates = useMemo(() => {
+    if (!drawerDomain) return null;
+    return data?.domains.find((d) => d.domain === drawerDomain)?.latest_rates ?? null;
+  }, [data?.domains, drawerDomain]);
 
   if (!tenantId || loading) {
     return (
@@ -248,61 +329,7 @@ export default function DomainsPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold">Domains</h1>
-        <p className="text-red-600" role="alert">{error}</p>
-      </div>
-    );
-  }
-
-  if (!data || Object.keys(data.per_domain).length === 0) {
-    return (
-      <div>
-        <h1 className="mb-6 text-xl font-semibold">Domains</h1>
-        <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-8 text-center">
-          <p className="text-gray-600">No domains yet.</p>
-          <p className="mt-1 text-sm text-gray-500">Run an eval to see per-domain metrics.</p>
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
-            <label htmlFor="domain-to-eval" className="text-sm text-gray-600">
-              Domain to evaluate:
-            </label>
-            <input
-              id="domain-to-eval"
-              type="text"
-              placeholder="e.g. example.com (optional — leave empty for all)"
-              value={domainInput}
-              onChange={(e) => setDomainInput(e.target.value)}
-              className="min-w-[200px] rounded border border-gray-300 px-3 py-2 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => (domainInput.trim() ? evaluateDomains() : runEval(null))}
-              disabled={runLoading || addingBulk}
-              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {runLoading || addingBulk ? "Starting…" : domainInput.trim() ? "Add domain(s) and run evaluation" : "Run evaluation"}
-            </button>
-          </div>
-          {runMessage && (
-            <p className={`mt-3 text-sm ${runMessage.type === "error" ? "text-red-600" : "text-green-700"}`}>
-              {runMessage.text}
-            </p>
-          )}
-          <p className="mt-4 text-xs text-gray-400">Added domains are evaluated automatically 24/7 on the server.</p>
-          {runMessage?.type === "error" && runMessage.text.toLowerCase().includes("not found") && (
-            <p className="mt-2 text-xs text-amber-700">
-              If you see &quot;Not Found&quot;, ensure the API on the VM has the latest code and NEXT_PUBLIC_API_BASE in Vercel points to your tunnel URL.
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  const basePath = `/tenants/${encodeURIComponent(tenantId!)}`;
-  const drawerRates = data && drawerDomain ? data.per_domain[drawerDomain] ?? null : null;
+  const basePath = `/tenants/${encodeURIComponent(tenantId)}`;
 
   return (
     <div>
@@ -320,9 +347,9 @@ export default function DomainsPage() {
             disabled={runLoading}
           >
             <option value="">All domains</option>
-            {domainsSorted.map(([d]) => (
-              <option key={d} value={d}>
-                {d}
+            {domainsSorted.map((row) => (
+              <option key={row.domain} value={row.domain}>
+                {row.domain}
               </option>
             ))}
           </select>
@@ -332,7 +359,7 @@ export default function DomainsPage() {
             disabled={runLoading}
             className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
           >
-            {runLoading ? "Starting…" : "Run evaluation"}
+            {runLoading ? "Starting..." : "Run evaluation"}
           </button>
         </div>
         {runMessage && (
@@ -342,37 +369,44 @@ export default function DomainsPage() {
         )}
       </div>
 
+      {error && (
+        <p className="mb-4 text-sm text-red-600" role="alert">
+          {error}
+        </p>
+      )}
+
       <div id="add-domains-section" className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
         <p className="mb-3 text-xs text-gray-500">
-          Add the number of domains you want (1, 5, 20, or more). Paste them below — one per line or separated by commas/semicolons — then click &quot;Evaluate domain(s)&quot; once. All will be added and show in the table after the eval run completes. Eval runs 24/7.
+          Paste one or more domains (newline/comma/semicolon). New rows appear immediately as running and update
+          automatically when evaluation completes.
         </p>
         <div className="flex flex-col gap-2">
           <textarea
-            placeholder="e.g. coasttocoastmovers.com — or paste many (one per line or comma/semicolon separated)"
+            placeholder="e.g. coasttocoastmovers.com or many domains"
             value={domainInput}
             onChange={(e) => setDomainInput(e.target.value)}
             rows={5}
             className="w-full rounded border border-gray-300 px-3 py-2 text-sm placeholder:text-gray-400"
             id="add-domain-input"
-            disabled={addingBulk}
+            disabled={runLoading}
           />
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={evaluateDomains}
-              disabled={runLoading || addingBulk || !domainInput.trim()}
+              disabled={runLoading || !domainInput.trim()}
               className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {addingBulk && bulkProgress
-                ? `Adding ${bulkProgress.done} of ${bulkProgress.total}…`
+              {activeJobId && bulkProgress
+                ? `Running ${bulkProgress.done} of ${bulkProgress.total}...`
                 : runLoading
-                  ? "Starting…"
+                  ? "Starting..."
                   : "Evaluate domain(s)"}
             </button>
             {bulkProgress && (
               <span className="text-xs text-gray-500">
-                {bulkProgress.done} of {bulkProgress.total} added
+                {bulkProgress.done} of {bulkProgress.total}
               </span>
             )}
           </div>
@@ -381,9 +415,9 @@ export default function DomainsPage() {
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-xs text-gray-500">Eval runs automatically 24/7. Click a row for details. Table shows the latest completed run.</p>
-          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-slate-700 dark:text-slate-200">
-            {domainsSorted.length + pendingDomains.length} domain{(domainsSorted.length + pendingDomains.length) !== 1 ? "s" : ""} monitored
+          <p className="text-xs text-gray-500">Eval runs automatically. Click a completed row for details.</p>
+          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
+            {domainsSorted.length} domain{domainsSorted.length !== 1 ? "s" : ""} monitored
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -400,10 +434,11 @@ export default function DomainsPage() {
             disabled={loading}
             className="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
-            {loading ? "Refreshing…" : "Refresh table"}
+            Refresh table
           </button>
         </div>
       </div>
+
       <div className="card max-h-[min(70vh,600px)] overflow-auto">
         <table className="min-w-full">
           <thead className="sticky top-0 z-10 bg-gray-50/95 shadow-sm backdrop-blur dark:bg-slate-800/95">
@@ -416,11 +451,7 @@ export default function DomainsPage() {
                 { key: "hallucination_rate" as const, label: "Hallucination" },
               ].map(({ key, label }) => (
                 <th key={key} className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  <button
-                    type="button"
-                    onClick={() => toggleSort(key)}
-                    className="flex items-center gap-1 hover:text-gray-900"
-                  >
+                  <button type="button" onClick={() => toggleSort(key)} className="flex items-center gap-1 hover:text-gray-900">
                     {label}
                     {sortKey === key ? (
                       sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
@@ -433,60 +464,66 @@ export default function DomainsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {pendingDomains.map((domain) => (
-              <motion.tr
-                key={`pending-${domain}`}
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                transition={{ duration: 0.2 }}
-                className="bg-primary/5"
-              >
-                <td className="px-3 py-2 font-medium text-primary">{domain}</td>
-                <td className="px-3 py-2">
-                  <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                    Running…
-                  </span>
+            {domainsSorted.length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-500">
+                  No monitored domains yet.
                 </td>
-                <td className="px-3 py-2">
-                  <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-                    Running…
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-xs text-gray-500">—</td>
-                <td className="px-3 py-2 text-xs text-gray-500">—</td>
-              </motion.tr>
-            ))}
-            {domainsSorted.map(([domain, rates]) => (
-              <motion.tr
-                key={domain}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
-                onClick={() => setDrawerDomain(domain)}
-                className={`cursor-pointer transition-colors hover:bg-primary/5 ${
-                  rates.hallucination_rate > 0 ? "bg-rose-50/50 hover:bg-rose-100/50" : ""
-                }`}
-              >
-                <td className="px-3 py-2 font-medium text-primary">
-                  {domain}
-                </td>
-                <td className="px-3 py-2">
-                  <MetricBadge type="mention" value={rates.mention_rate} />
-                </td>
-                <td className="px-3 py-2">
-                  <MetricBadge type="citation" value={rates.citation_rate} />
-                </td>
-                <td className="px-3 py-2">
-                  <MetricBadge type="attribution" value={rates.attribution_rate} />
-                </td>
-                <td className="px-3 py-2">
-                  <MetricBadge type="hallucination" value={rates.hallucination_rate} />
-                </td>
-              </motion.tr>
-            ))}
+              </tr>
+            )}
+            {domainsSorted.map((row) => {
+              const rates = row.latest_rates;
+              const isCompleted = row.status === "completed" && rates !== null;
+              return (
+                <motion.tr
+                  key={row.domain}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={() => {
+                    if (isCompleted) setDrawerDomain(row.domain);
+                  }}
+                  className={`transition-colors ${
+                    isCompleted
+                      ? "cursor-pointer hover:bg-primary/5"
+                      : "bg-primary/5"
+                  }`}
+                >
+                  <td className="px-3 py-2 font-medium text-primary">{row.domain}</td>
+                  {isCompleted && rates ? (
+                    <>
+                      <td className="px-3 py-2">
+                        <MetricBadge type="mention" value={rates.mention_rate} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <MetricBadge type="citation" value={rates.citation_rate} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <MetricBadge type="attribution" value={rates.attribution_rate} />
+                      </td>
+                      <td className="px-3 py-2">
+                        <MetricBadge type="hallucination" value={rates.hallucination_rate} />
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          {row.status === "pending" ? "Pending" : "Running..."}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
+                    </>
+                  )}
+                </motion.tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
       <DomainDrawer
         domain={drawerDomain}
         rates={drawerRates}
