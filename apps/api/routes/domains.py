@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from typing import Literal
 from urllib.parse import unquote
@@ -15,10 +16,11 @@ from apps.api.services.domain_jobs import (
     get_domain_eval_job,
     get_latest_domain_job_statuses,
 )
-from apps.api.services.repo import add_eval_domain, get_eval_metrics_for_run, get_latest_eval_run, list_eval_domains
+from apps.api.services.repo import add_eval_domain, get_latest_domain_eval_snapshots, get_latest_eval_run, list_eval_domains
 from apps.api.services.tenant_context import TenantId
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 _DOMAIN_REGEX = re.compile(
     r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
@@ -52,6 +54,9 @@ class DomainRow(BaseModel):
     domain: str
     status: Literal["pending", "running", "done", "failed"]
     latest_rates: EvalMetricsRates | None = None
+    last_run_id: str | None = None
+    last_run_created_at: str | None = None
+    failure_reason: str | None = None
 
 
 class DomainsListResponse(BaseModel):
@@ -128,29 +133,71 @@ async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListR
     tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
     monitored = list_eval_domains(tenant)
     run = get_latest_eval_run(tenant)
-    per_domain: dict[str, EvalMetricsRates] = {}
     run_id: str | None = None
     if run is not None:
         run_id = str(run.id)
-        metrics = get_eval_metrics_for_run(tenant, run.id)
-        per_domain = {
-            str(domain): EvalMetricsRates.model_validate(rates)
-            for domain, rates in (metrics.get("per_domain") or {}).items()
-            if domain
-        }
+    snapshots = get_latest_domain_eval_snapshots(tenant)
+    per_domain: dict[str, EvalMetricsRates] = {
+        domain: EvalMetricsRates(
+            mention_rate=float(snap["mention_rate"]),
+            citation_rate=float(snap["citation_rate"]),
+            attribution_rate=float(snap["attribution_rate"]),
+            hallucination_rate=float(snap["hallucination_rate"]),
+        )
+        for domain, snap in snapshots.items()
+    }
     domain_job_status = get_latest_domain_job_statuses(tenant)
-    all_domains = sorted(set(monitored) | set(per_domain.keys()) | set(domain_job_status.keys()))
+    all_domains = sorted(set(monitored) | set(snapshots.keys()) | set(domain_job_status.keys()))
     rows: list[DomainRow] = []
+    pending_count = 0
+    running_count = 0
+    done_count = 0
+    failed_count = 0
     for domain in all_domains:
         rates = per_domain.get(domain)
         job_status = domain_job_status.get(domain)
-        if job_status in {"FAILED", "RUNNING", "PENDING"}:
+        snap = snapshots.get(domain)
+        if job_status == "RUNNING":
             status: Literal["pending", "running", "done", "failed"] = _format_job_status(job_status)
+        elif snap is not None:
+            status = "failed" if snap["status"] == "FAILED" else "done"
+        elif job_status in {"FAILED", "PENDING"}:
+            status = _format_job_status(job_status)
         elif rates is not None:
             status = "done"
         else:
             status = "pending"
-        rows.append(DomainRow(domain=domain, status=status, latest_rates=rates))
+        if status == "pending":
+            pending_count += 1
+        elif status == "running":
+            running_count += 1
+        elif status == "failed":
+            failed_count += 1
+        else:
+            done_count += 1
+        rows.append(
+            DomainRow(
+                domain=domain,
+                status=status,
+                latest_rates=rates,
+                last_run_id=(str(snap["run_id"]) if snap else None),
+                last_run_created_at=(
+                    snap["run_created_at"].isoformat()
+                    if snap and snap.get("run_created_at") is not None
+                    else None
+                ),
+                failure_reason=(snap.get("refusal_reason_summary") if snap and snap["status"] == "FAILED" else None),
+            )
+        )
+    logger.info(
+        "domains_list tenant_id=%s domains=%s pending=%s running=%s done=%s failed=%s",
+        tenant,
+        len(rows),
+        pending_count,
+        running_count,
+        done_count,
+        failed_count,
+    )
     return DomainsListResponse(tenant_id=tenant, run_id=run_id, domains=rows)
 
 
@@ -196,6 +243,12 @@ async def evaluate_domains(
     else:
         normalized = list_eval_domains(tenant)
     state = enqueue_domain_eval_job(tenant, normalized)
+    logger.info(
+        "domains_evaluate_enqueued tenant_id=%s job_id=%s domain_count=%s",
+        tenant,
+        state["id"],
+        len(normalized) if normalized else 0,
+    )
     status_url = f"/tenants/{tenant}/jobs/{state['id']}"
     return DomainsEvaluateResponse(
         status="started",

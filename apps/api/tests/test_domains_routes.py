@@ -23,16 +23,18 @@ def test_list_domains_combines_monitored_and_latest_metrics() -> None:
         "apps.api.routes.domains.get_latest_eval_run",
         return_value=type("Run", (), {"id": fake_run_id})(),
     ), patch(
-        "apps.api.routes.domains.get_eval_metrics_for_run",
+        "apps.api.routes.domains.get_latest_domain_eval_snapshots",
         return_value={
-            "per_domain": {
-                "beta.com": {
-                    "mention_rate": 1.0,
-                    "citation_rate": 0.5,
-                    "attribution_rate": 0.75,
-                    "hallucination_rate": 0.0,
-                }
-            }
+            "beta.com": {
+                "run_id": str(fake_run_id),
+                "run_created_at": None,
+                "mention_rate": 1.0,
+                "citation_rate": 0.5,
+                "attribution_rate": 0.75,
+                "hallucination_rate": 0.0,
+                "status": "DONE",
+                "refusal_reason_summary": None,
+            },
         },
     ), patch(
         "apps.api.routes.domains.get_latest_domain_job_statuses",

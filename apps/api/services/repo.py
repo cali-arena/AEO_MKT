@@ -1181,6 +1181,76 @@ def get_eval_metrics_for_run(
     return {"overall": overall, "per_domain": per_domain}
 
 
+def get_latest_domain_eval_snapshots(tenant_id: str | None) -> dict[str, dict[str, Any]]:
+    """Return per-domain metrics/status from each domain's latest run with results.
+    Status is FAILED when all rows in that run are refused; otherwise DONE."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = text(
+        """
+        WITH latest_per_domain AS (
+            SELECT DISTINCT ON (er.domain)
+                   er.domain,
+                   er.run_id,
+                   r.created_at AS run_created_at
+            FROM eval_result er
+            JOIN eval_run r ON r.id = er.run_id AND r.tenant_id = er.tenant_id
+            WHERE er.tenant_id = :tenant_id
+            ORDER BY er.domain, r.created_at DESC, er.id DESC
+        ),
+        agg AS (
+            SELECT er.domain,
+                   er.run_id,
+                   AVG(CAST(er.mention_ok AS INTEGER))::float AS mention_rate,
+                   AVG(CAST(er.citation_ok AS INTEGER))::float AS citation_rate,
+                   AVG(CAST(er.attribution_ok AS INTEGER))::float AS attribution_rate,
+                   AVG(CAST(er.hallucination_flag AS INTEGER))::float AS hallucination_rate,
+                   COUNT(*)::int AS total_rows,
+                   SUM(CASE WHEN er.refused THEN 1 ELSE 0 END)::int AS refused_rows,
+                   STRING_AGG(DISTINCT NULLIF(TRIM(er.refusal_reason), ''), '; ') AS refusal_reason_summary
+            FROM eval_result er
+            JOIN latest_per_domain ld
+              ON ld.domain = er.domain
+             AND ld.run_id = er.run_id
+            WHERE er.tenant_id = :tenant_id
+            GROUP BY er.domain, er.run_id
+        )
+        SELECT ld.domain,
+               ld.run_id,
+               ld.run_created_at,
+               COALESCE(a.mention_rate, 0.0) AS mention_rate,
+               COALESCE(a.citation_rate, 0.0) AS citation_rate,
+               COALESCE(a.attribution_rate, 0.0) AS attribution_rate,
+               COALESCE(a.hallucination_rate, 0.0) AS hallucination_rate,
+               COALESCE(a.total_rows, 0) AS total_rows,
+               COALESCE(a.refused_rows, 0) AS refused_rows,
+               COALESCE(a.refusal_reason_summary, '') AS refusal_reason_summary
+        FROM latest_per_domain ld
+        LEFT JOIN agg a
+          ON a.domain = ld.domain
+         AND a.run_id = ld.run_id
+        """
+    )
+    with get_db() as session:
+        rows = session.execute(stmt, {"tenant_id": tenant_id}).mappings().all()
+
+    out: dict[str, dict[str, Any]] = {}
+    for r in rows:
+        total_rows = int(r["total_rows"] or 0)
+        refused_rows = int(r["refused_rows"] or 0)
+        status = "FAILED" if total_rows > 0 and refused_rows == total_rows else "DONE"
+        out[str(r["domain"])] = {
+            "run_id": str(r["run_id"]),
+            "run_created_at": r["run_created_at"],
+            "mention_rate": float(r["mention_rate"] or 0.0),
+            "citation_rate": float(r["citation_rate"] or 0.0),
+            "attribution_rate": float(r["attribution_rate"] or 0.0),
+            "hallucination_rate": float(r["hallucination_rate"] or 0.0),
+            "status": status,
+            "refusal_reason_summary": str(r["refusal_reason_summary"] or "") or None,
+        }
+    return out
+
+
 def list_eval_runs(
     tenant_id: str | None,
     date_from: date | None = None,

@@ -85,6 +85,10 @@ export default function DomainsPage() {
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const hasInFlightRows = useMemo(
+    () => (data?.domains ?? []).some((row) => row.status === "pending" || row.status === "running"),
+    [data?.domains]
+  );
 
   const refresh = useCallback(() => {
     if (!tenantId) return Promise.resolve();
@@ -172,6 +176,20 @@ export default function DomainsPage() {
     };
   }, [tenantId, activeJobId, refresh]);
 
+  useEffect(() => {
+    if (!tenantId || !hasInFlightRows) return;
+    let stopped = false;
+    const poll = async () => {
+      if (stopped) return;
+      await refresh();
+    };
+    const interval = window.setInterval(poll, 3000);
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+  }, [tenantId, hasInFlightRows, refresh]);
+
   const optimisticUpsertDomains = useCallback(
     (domains: string[]) => {
       if (!tenantId || domains.length === 0) return;
@@ -184,6 +202,9 @@ export default function DomainsPage() {
             domain,
             status: "running",
             latest_rates: existing?.latest_rates ?? null,
+            last_run_id: existing?.last_run_id ?? null,
+            last_run_created_at: existing?.last_run_created_at ?? null,
+            failure_reason: null,
           });
         }
         return {
@@ -206,8 +227,9 @@ export default function DomainsPage() {
       });
       setRunMessage({ type: "success", text: successMessage || res.message });
       setActiveJobId(res.job_id);
+      await refresh();
     },
-    [tenantId]
+    [tenantId, refresh]
   );
 
   const evaluateDomains = useCallback(async () => {
@@ -268,6 +290,7 @@ export default function DomainsPage() {
             ? `Evaluation started for ${domain}.`
             : "Evaluation started for all monitored domains."
         );
+        await refresh();
       } catch (err) {
         setRunMessage({
           type: "error",
@@ -491,7 +514,7 @@ export default function DomainsPage() {
             )}
             {domainsSorted.map((row) => {
               const rates = row.latest_rates;
-              const isCompleted = row.status === "done" && rates !== null;
+              const isCompleted = row.status === "done";
               return (
                 <motion.tr
                   key={row.domain}
@@ -522,6 +545,17 @@ export default function DomainsPage() {
                       <td className="px-3 py-2">
                         <MetricBadge type="hallucination" value={rates.hallucination_rate} />
                       </td>
+                    </>
+                  ) : isCompleted ? (
+                    <>
+                      <td className="px-3 py-2">
+                        <span className="inline-flex rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                          Done
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
+                      <td className="px-3 py-2 text-xs text-gray-500">-</td>
                     </>
                   ) : (
                     <>
