@@ -54,14 +54,10 @@ export function KpiCard({
       if (t < 1) requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- animation uses displayValue as start; including it would retrigger every frame
   }, [value]);
 
-  const displayStr =
-    format === "percent"
-      ? `${(displayValue * 100).toFixed(1)}%`
-      : format === "decimal"
-        ? displayValue.toFixed(2)
-        : Math.round(displayValue).toString();
+  const displayStr = formatValue(displayValue, format);
 
   return (
     <motion.div

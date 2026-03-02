@@ -6,11 +6,10 @@ import { apiFetch, ApiError } from "@/lib/api";
 import type { EvalMetricsLatestOut, EvalMetricsRates } from "@/lib/types";
 import { MetricBadge } from "@/components/ui/MetricBadge";
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
-import { AddDomainSingle } from "@/components/domains/AddDomainSingle";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { motion } from "framer-motion";
 
-function loadData(_tenantId: string) {
+function loadData() {
   return apiFetch<EvalMetricsLatestOut>("/eval/metrics/latest");
 }
 
@@ -60,7 +59,7 @@ export default function DomainsPage() {
   const refresh = useCallback(() => {
     if (!tenantId) return;
     setLoading(true);
-    loadData(tenantId)
+    loadData()
       .then(setData)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) {
@@ -78,7 +77,7 @@ export default function DomainsPage() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    loadData(tenantId)
+    loadData()
       .then((res) => {
         if (!cancelled) setData(res);
       })
@@ -147,30 +146,11 @@ export default function DomainsPage() {
     };
   }, [refresh]);
 
-  const addSingleDomain = useCallback(
-    async (domain: string) => {
-      if (!tenantId) return;
-      await apiFetch<{ status: string; message: string }>("/eval/domains", {
-        method: "POST",
-        body: JSON.stringify({ domain }),
-      });
-      setPendingDomains((prev) => (prev.includes(domain) ? prev : [...prev, domain]));
-      refresh();
-      scheduleRefreshPoll();
-    },
-    [tenantId, refresh, scheduleRefreshPoll]
-  );
-
   useEffect(() => {
     const perDomain = data?.per_domain;
     if (!perDomain) return;
     setPendingDomains((prev) => prev.filter((d) => !(d in perDomain)));
   }, [data?.per_domain]);
-
-  const existingDomains = useMemo(
-    () => new Set([...domainsSorted.map(([d]) => d), ...pendingDomains]),
-    [domainsSorted, pendingDomains]
-  );
 
   const evaluateDomains = useCallback(async () => {
     const list = parseDomainList(domainInput);
@@ -182,7 +162,7 @@ export default function DomainsPage() {
         method: "POST",
         body: JSON.stringify({ domain: list[0] }),
       })
-        .then((res) => {
+        .then(() => {
           setRunMessage({
             type: "success",
             text: "Domain added. Eval is running — the table will update in 1–2 min when it finishes, or refresh the page.",

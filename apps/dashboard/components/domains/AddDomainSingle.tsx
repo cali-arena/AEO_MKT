@@ -10,7 +10,7 @@ export type ValidateDomainResult =
 export function validateDomain(domain: string): ValidateDomainResult {
   const raw = domain.trim();
   if (!raw) return { valid: false, error: "Enter a domain" };
-  let normalized = raw
+  const normalized = raw
     .replace(/^https?:\/\//i, "")
     .replace(/\/.*$/, "")
     .trim()
