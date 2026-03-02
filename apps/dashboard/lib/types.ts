@@ -94,6 +94,10 @@ export interface DomainListItem {
   domain: string;
   status: "pending" | "running" | "done" | "failed";
   latest_rates: EvalMetricsRates | null;
+  total_results?: number;
+  last_run_id: string | null;
+  last_run_created_at: string | null;
+  failure_reason: string | null;
 }
 
 export interface DomainsListResponse {
