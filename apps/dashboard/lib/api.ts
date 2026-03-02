@@ -11,6 +11,11 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ||
   (process.env.VERCEL === "1" ? "" : "http://localhost:8000");
 
+/** For debugging: returns the API base URL used by this build (empty on Vercel if env was not set at build time). */
+export function getApiBase(): string {
+  return API_BASE;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

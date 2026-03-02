@@ -6,7 +6,9 @@ import { apiFetch, ApiError } from "@/lib/api";
 import type { EvalMetricsLatestOut, EvalMetricsRates } from "@/lib/types";
 import { MetricBadge } from "@/components/ui/MetricBadge";
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
+import { AddDomainSingle } from "@/components/domains/AddDomainSingle";
 import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { motion } from "framer-motion";
 
 function loadData(_tenantId: string) {
   return apiFetch<EvalMetricsLatestOut>("/eval/metrics/latest");
@@ -27,6 +29,7 @@ export default function DomainsPage() {
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
   const [addingBulk, setAddingBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [pendingDomains, setPendingDomains] = useState<string[]>([]);
 
   const domainsSorted = useMemo(() => {
     const perDomain = data?.per_domain;
@@ -143,6 +146,31 @@ export default function DomainsPage() {
       clearTimeout(t4);
     };
   }, [refresh]);
+
+  const addSingleDomain = useCallback(
+    async (domain: string) => {
+      if (!tenantId) return;
+      await apiFetch<{ status: string; message: string }>("/eval/domains", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      });
+      setPendingDomains((prev) => (prev.includes(domain) ? prev : [...prev, domain]));
+      refresh();
+      scheduleRefreshPoll();
+    },
+    [tenantId, refresh, scheduleRefreshPoll]
+  );
+
+  useEffect(() => {
+    const perDomain = data?.per_domain;
+    if (!perDomain) return;
+    setPendingDomains((prev) => prev.filter((d) => !(d in perDomain)));
+  }, [data?.per_domain]);
+
+  const existingDomains = useMemo(
+    () => new Set([...domainsSorted.map(([d]) => d), ...pendingDomains]),
+    [domainsSorted, pendingDomains]
+  );
 
   const evaluateDomains = useCallback(async () => {
     const list = parseDomainList(domainInput);
@@ -375,7 +403,7 @@ export default function DomainsPage() {
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-xs text-gray-500">Eval runs automatically 24/7. Click a row for details. Table shows the latest completed run.</p>
           <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-slate-700 dark:text-slate-200">
-            {domainsSorted.length} domain{domainsSorted.length !== 1 ? "s" : ""} in table
+            {domainsSorted.length + pendingDomains.length} domain{(domainsSorted.length + pendingDomains.length) !== 1 ? "s" : ""} monitored
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -425,9 +453,35 @@ export default function DomainsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
+            {pendingDomains.map((domain) => (
+              <motion.tr
+                key={`pending-${domain}`}
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                transition={{ duration: 0.2 }}
+                className="bg-primary/5"
+              >
+                <td className="px-3 py-2 font-medium text-primary">{domain}</td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    Running…
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                    Running…
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-xs text-gray-500">—</td>
+                <td className="px-3 py-2 text-xs text-gray-500">—</td>
+              </motion.tr>
+            ))}
             {domainsSorted.map(([domain, rates]) => (
-              <tr
+              <motion.tr
                 key={domain}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
                 onClick={() => setDrawerDomain(domain)}
                 className={`cursor-pointer transition-colors hover:bg-primary/5 ${
                   rates.hallucination_rate > 0 ? "bg-rose-50/50 hover:bg-rose-100/50" : ""
@@ -448,7 +502,7 @@ export default function DomainsPage() {
                 <td className="px-3 py-2">
                   <MetricBadge type="hallucination" value={rates.hallucination_rate} />
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>

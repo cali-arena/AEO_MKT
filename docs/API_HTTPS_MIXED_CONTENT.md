@@ -88,13 +88,27 @@ sudo systemctl start cloudflared-tunnel
 sudo systemctl status cloudflared-tunnel
 ```
 
-3. Ver a **URL do túnel** (quick tunnel gera URL nova a cada start/reboot):
+3. **Comando para ver o link do túnel** (rode no VM; quick tunnel gera URL nova a cada start/reboot):
 
 ```bash
 sudo journalctl -u cloudflared-tunnel -n 30 --no-pager
 ```
 
-Procure a linha `Visit it at: https://....trycloudflare.com` e use essa URL no Vercel.
+Procure a linha `Visit it at: https://....trycloudflare.com` e copie essa URL.
+
+Para extrair só a URL (copiar e colar no Vercel):
+
+```bash
+sudo journalctl -u cloudflared-tunnel -n 50 --no-pager | grep -oP 'https://[^\s]+\.trycloudflare\.com' | head -1
+```
+
+Ou, se tiver o repositório no VM, use o script que já imprime a URL e o lembrete do Vercel:
+
+```bash
+sudo ./scripts/show-tunnel-url.sh
+```
+
+Use a URL em **Vercel** → Settings → Environment Variables → **NEXT_PUBLIC_API_BASE** (sem barra no final) e faça **Redeploy**.
 
 **Importante:** Cada vez que o VM **reiniciar**, a URL do quick tunnel **muda**. Depois do reboot:
 
@@ -134,6 +148,14 @@ docker compose -f infra/docker-compose.yml --env-file .env up -d api
 ### 7. Redeploy do dashboard
 
 No Vercel: **Deployments** → menu **⋮** no último deploy → **Redeploy**. Aguarde terminar.
+
+### Se ainda der "Failed to fetch" depois de colocar o tunnel no Vercel
+
+1. **Redeploy obrigatório** — A variável `NEXT_PUBLIC_API_BASE` é injetada no build. Só salvar em **Settings → Environment Variables** não altera o site no ar. Vá em **Deployments** → **⋮** no último deploy → **Redeploy** e espere o build terminar.
+2. **Ambiente** — Confirme que a variável está definida para o ambiente que você usa (Production e, se usar previews, Preview). Em "Environments" use "All Environments" ou marque Production.
+3. **Cache** — Depois do redeploy, faça hard refresh (Ctrl+F5) ou abra em aba anônima.
+4. **Conferir o que o site está usando** — Abra a página de health do dashboard (ex.: `https://seu-dashboard.vercel.app/health`). Se der erro, ela mostra o "Current API base". Se aparecer "(not set)", o build foi feito sem a variável; refaça o redeploy após salvar a env.
+5. **Túnel e CORS** — No VM: túnel rodando (`sudo systemctl status cloudflared-tunnel`) e no `.env` da API a origem do dashboard em `CORS_ALLOW_ORIGINS`. Reinicie a API após mudar o `.env`: `docker compose -f infra/docker-compose.yml --env-file .env up -d api`.
 
 ### 8. Testar
 

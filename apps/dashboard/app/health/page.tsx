@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, getApiBase } from "@/lib/api";
 import type { HealthResponse } from "@/lib/types";
 
 export default function HealthPage() {
@@ -41,15 +41,32 @@ export default function HealthPage() {
   }
 
   if (error) {
+    const apiBase = getApiBase();
+    const isVercel = typeof window !== "undefined" && /\.vercel\.app$/i.test(window.location.hostname);
+    const missingBase = isVercel && !apiBase;
+
     return (
       <main className="flex min-h-screen items-center justify-center p-8">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6">
+        <div className="max-w-md rounded-lg border border-red-200 bg-red-50 p-6">
           <p className="font-medium text-red-800">API unhealthy</p>
           <p className="mt-1 text-sm text-red-600">{error}</p>
           <p className="mt-2 text-xs text-gray-600">
-            Ensure <code className="rounded bg-gray-200 px-1">NEXT_PUBLIC_API_BASE</code> points to a
-            running backend.
+            Current API base: <code className="rounded bg-gray-200 px-1">{apiBase || "(not set)"}</code>
           </p>
+          {missingBase && (
+            <div className="mt-3 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="font-medium">Env not applied in this build</p>
+              <p className="mt-1 text-xs">
+                Set <code>NEXT_PUBLIC_API_BASE</code> in Vercel → Settings → Environment Variables (tunnel URL, no trailing slash),
+                then <strong>Redeploy</strong> — the value is baked at build time. Saving the variable alone does not update the live site.
+              </p>
+            </div>
+          )}
+          {!missingBase && (
+            <p className="mt-2 text-xs text-gray-600">
+              Ensure the backend and tunnel are running and CORS allows this origin.
+            </p>
+          )}
         </div>
       </main>
     );
