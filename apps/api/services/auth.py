@@ -19,7 +19,6 @@ AUTH_EXEMPT_PATH_PREFIXES = (
     "/openapi.json",
     "/docs/oauth2-redirect",
     "/static",
-    "/metrics",
 )
 
 
