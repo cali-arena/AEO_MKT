@@ -34,7 +34,13 @@ from apps.api.services.ingest import ingest_page
 from apps.api.services.page_type import infer_page_type
 from apps.api.services.policy import crawl_policy_version as get_crawl_policy_version
 from apps.api.services.policy import load_policy
-from apps.api.services.repo import get_sections_by_raw_page_id, insert_raw_page
+from apps.api.services.repo import (
+    delete_ac_embeddings_for_section_ids,
+    delete_ec_embeddings_for_section_ids,
+    get_artifact_counts_for_raw_page,
+    get_sections_by_raw_page_id,
+    insert_raw_page,
+)
 from apps.api.services.sectionize import sectionize_and_persist
 from apps.api.services.url_utils import canonicalize_url
 
@@ -167,6 +173,59 @@ def run_day1_pipeline(
     unchanged = ingest_result.get("unchanged", False)
 
     if unchanged:
+        sections_count, ac_count, ec_count = get_artifact_counts_for_raw_page(tenant_id, raw_page_id)
+        logger.info(
+            "raw_page unchanged url=%s raw_page_id=%s artifact_check sections=%d ac=%d ec=%d",
+            url,
+            raw_page_id,
+            sections_count,
+            ac_count,
+            ec_count,
+        )
+        sections_missing = sections_count == 0
+        embeddings_missing = ac_count == 0 or ec_count == 0
+        if sections_missing or embeddings_missing:
+            logger.info(
+                "unchanged_but_missing -> rebuilding sectionize+embeddings url=%s raw_page_id=%s",
+                url,
+                raw_page_id,
+            )
+            section_ids = sectionize_and_persist(
+                tenant_id,
+                raw_page_id,
+                final_url,
+                normalized,
+                html=html,
+                raw_page_content_hash=ch,
+                domain=final_domain,
+                page_type=page_type,
+                crawl_policy_version=policy_ver,
+            )
+            sections = get_sections_by_raw_page_id(tenant_id, raw_page_id)
+            if not sections:
+                logger.info("Day1 pipeline no sections url=%s (rebuild)", url)
+                return {"raw_page_id": raw_page_id, "section_ids": [], "indexed_count": 0, "evidence_ids": [], "unchanged": False}
+            delete_ac_embeddings_for_section_ids(tenant_id, section_ids)
+            delete_ec_embeddings_for_section_ids(tenant_id, section_ids)
+            sections_for_ac = [
+                {
+                    "section_id": s["section_id"],
+                    "text": s["text"],
+                    "version_hash": s["version_hash"],
+                    "url": final_url,
+                    "domain": s.get("domain") or "",
+                }
+                for s in sections
+            ]
+            indexed_count = index_ac(tenant_id, sections_for_ac)
+            logger.info("Day1 pipeline done (repaired) url=%s raw_page_id=%s sections=%d", url, raw_page_id, len(section_ids))
+            return {
+                "raw_page_id": raw_page_id,
+                "section_ids": section_ids,
+                "indexed_count": indexed_count,
+                "evidence_ids": [],
+                "unchanged": False,
+            }
         logger.info("Day1 pipeline unchanged url=%s raw_page_id=%s skipping re-sectionize", url, raw_page_id)
         return {
             "raw_page_id": raw_page_id,
@@ -193,7 +252,13 @@ def run_day1_pipeline(
         return {"raw_page_id": raw_page_id, "section_ids": [], "indexed_count": 0, "evidence_ids": []}
 
     sections_for_ac = [
-        {"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": final_url}
+        {
+            "section_id": s["section_id"],
+            "text": s["text"],
+            "version_hash": s["version_hash"],
+            "url": final_url,
+            "domain": s.get("domain") or "",
+        }
         for s in sections
     ]
     indexed_count = index_ac(tenant_id, sections_for_ac)

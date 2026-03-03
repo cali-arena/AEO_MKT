@@ -25,15 +25,16 @@ TENANT = "tenant_hybrid"
 def sections_with_lexical_and_semantic():
     """Sections where lexical match (exact keyword) and semantic match both surface."""
     url = "https://example.com/hybrid"
-    pid = insert_raw_page(TENANT, url, text="Main")
+    domain = "example.com"
+    pid = insert_raw_page(TENANT, url, text="Main", domain=domain)
     # Exact keyword for BM25; overlapping meaning for vector
     insert_sections(TENANT, pid, [
-        {"section_id": "sec_lex", "text": "relocation services and long distance moving packages", "version_hash": "v1"},
-        {"section_id": "sec_sem", "text": "We help you move across the country with full-service transport.", "version_hash": "v2"},
+        {"section_id": "sec_lex", "text": "relocation services and long distance moving packages", "version_hash": "v1", "domain": domain},
+        {"section_id": "sec_sem", "text": "We help you move across the country with full-service transport.", "version_hash": "v2", "domain": domain},
     ])
     index_ac(TENANT, [
-        {"section_id": "sec_lex", "text": "relocation services and long distance moving packages", "version_hash": "v1", "url": url},
-        {"section_id": "sec_sem", "text": "We help you move across the country with full-service transport.", "version_hash": "v2", "url": url},
+        {"section_id": "sec_lex", "text": "relocation services and long distance moving packages", "version_hash": "v1", "url": url, "domain": domain},
+        {"section_id": "sec_sem", "text": "We help you move across the country with full-service transport.", "version_hash": "v2", "url": url, "domain": domain},
     ])
     yield TENANT
 
@@ -43,9 +44,10 @@ def sections_bm25_only(_ensure_text_tsv):
     """Sections with text but no ac_embeddings. BM25 finds them; vector returns 0."""
     tenant = "tenant_hybrid_bm25_only"
     url = "https://example.com/bm25-only"
-    pid = insert_raw_page(tenant, url, text="Main")
+    domain = "example.com"
+    pid = insert_raw_page(tenant, url, text="Main", domain=domain)
     insert_sections(tenant, pid, [
-        {"section_id": "sec_bm25_1", "text": "relocation services and long distance moving", "version_hash": "v1"},
+        {"section_id": "sec_bm25_1", "text": "relocation services and long distance moving", "version_hash": "v1", "domain": domain},
     ])
     # Do NOT call index_ac - no vector embeddings
     yield tenant

@@ -58,6 +58,7 @@ def evidence_records_for_insert(
         records.append({
             "evidence_id": eid,
             "section_id": section_id,
+            "domain": r.get("domain") or "",
             "url": url,
             "quote_span": quote_span,
             "start_char": r.get("start_char"),

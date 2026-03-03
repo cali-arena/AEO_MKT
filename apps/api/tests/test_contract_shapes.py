@@ -230,27 +230,30 @@ def test_answer_response_shape_with_claims(mock_retrieve) -> None:
 
 @requires_db
 def test_evidence_dict_includes_tenant_id_and_created_at() -> None:
-    """Every evidence dict from get_evidence_by_ids includes tenant_id and created_at."""
+    """Every evidence dict from get_evidence_by_ids includes tenant_id, domain, and created_at."""
     from apps.api.services.repo import get_evidence_by_ids, insert_evidence, insert_raw_page, insert_sections
     tenant_id = f"contract_evidence_{uuid.uuid4().hex[:8]}"
     url = "https://example.com/evidence-contract"
-    pid = insert_raw_page(tenant_id, url, text="Test content")
+    domain = "example.com"
+    pid = insert_raw_page(tenant_id, url, text="Test content", domain=domain)
     insert_sections(
         tenant_id,
         pid,
         [
-            {"section_id": "sec_e1", "text": "Section text", "version_hash": "vh1"},
+            {"section_id": "sec_e1", "text": "Section text", "version_hash": "vh1", "domain": domain},
         ],
     )
     eid = str(uuid.uuid4())
     insert_evidence(
         tenant_id,
-        [{"evidence_id": eid, "section_id": "sec_e1", "url": url, "quote_span": "Section", "start_char": 0, "end_char": 7, "version_hash": "vh1"}],
+        [{"evidence_id": eid, "section_id": "sec_e1", "domain": domain, "url": url, "quote_span": "Section", "start_char": 0, "end_char": 7, "version_hash": "vh1"}],
     )
     ev_list = get_evidence_by_ids(tenant_id, [eid])
     assert len(ev_list) >= 1
     for ev in ev_list:
         assert "tenant_id" in ev, "evidence dict must include tenant_id"
+        assert "domain" in ev, "evidence dict must include domain"
         assert "created_at" in ev, "evidence dict must include created_at"
         assert ev["tenant_id"] == tenant_id
+        assert ev["domain"] == domain
         assert ev["created_at"] is None or isinstance(ev["created_at"], str)

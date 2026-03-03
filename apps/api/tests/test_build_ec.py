@@ -16,10 +16,11 @@ def _mock_embed(texts: list[str]) -> list[list[float]]:
 def tenant_with_sections():
     tenant_id = "test-build-ec-tenant"
     url = "https://example.com/page"
-    pid = insert_raw_page(tenant_id, url, text="Main content")
+    domain = "example.com"
+    pid = insert_raw_page(tenant_id, url, text="Main content", domain=domain)
     insert_sections(tenant_id, pid, [
-        {"section_id": "sec_1", "text": "Contact us in Dallas, TX or call +1-555-123-4567.", "version_hash": "vh1"},
-        {"section_id": "sec_2", "text": "We serve New York, NY and Austin, TX.", "version_hash": "vh2"},
+        {"section_id": "sec_1", "text": "Contact us in Dallas, TX or call +1-555-123-4567.", "version_hash": "vh1", "domain": domain},
+        {"section_id": "sec_2", "text": "We serve New York, NY and Austin, TX.", "version_hash": "vh2", "domain": domain},
     ])
     yield tenant_id
 

@@ -16,6 +16,7 @@ from sqlalchemy import Float, Integer, case, cast, delete, func, or_, select, te
 from apps.api.db import get_db
 from apps.api.models.ac_embedding import ACEmbedding
 from apps.api.models.ec_embedding import ECEmbedding
+from apps.api.models.domain_index_state import DomainIndexState
 from apps.api.models.entity import Entity
 from apps.api.models.eval_domain import EvalDomain
 from apps.api.models.eval_result import EvalResult
@@ -50,10 +51,15 @@ def _assert_tenant(tenant_id: str | None) -> None:
     require_tenant_id(tenant_id)
 
 
-def get_existing_ac_section_ids(tenant_id: str | None) -> set[str]:
-    """Return section_ids already indexed in ac_embeddings. Always filter by tenant_id."""
+def get_existing_ac_section_ids(
+    tenant_id: str | None,
+    domain: str | None = None,
+) -> set[str]:
+    """Return section_ids already indexed in ac_embeddings. Filter by tenant_id and optionally domain."""
     tenant_id = require_tenant_id(tenant_id)
     stmt = select_ac_embedding_for_tenant(tenant_id).with_only_columns(ACEmbedding.section_id)
+    if domain is not None:
+        stmt = stmt.where(ACEmbedding.domain == domain)
     with get_db() as session:
         rows = session.execute(stmt).all()
         return {r[0] for r in rows}
@@ -63,7 +69,7 @@ def insert_ac_embeddings(
     tenant_id: str | None,
     records: Sequence[dict[str, Any]],
 ) -> None:
-    """Bulk insert ac_embeddings. Each dict: section_id, embedding."""
+    """Bulk insert ac_embeddings. Each dict: section_id, embedding, domain."""
     tenant_id = require_tenant_id(tenant_id)
     if not records:
         return
@@ -71,6 +77,7 @@ def insert_ac_embeddings(
         objs = [
             ACEmbedding(
                 tenant_id=tenant_id,
+                domain=r["domain"],
                 section_id=r["section_id"],
                 embedding=r["embedding"],
             )
@@ -84,16 +91,18 @@ def execute_ac_bm25_retrieval(
     query: str,
     k: int,
     fts_config: str = "simple",
+    domain: str | None = None,
 ) -> list[tuple[Any, ...]]:
     """
     BM25-style FTS retrieval on sections.text_tsv using websearch_to_tsquery and ts_rank_cd.
     Returns rows (section_id, version_hash, url, text, page_type, rank).
-    Tenant-filtered. Returns [] if query empty. Requires text_tsv column (migration 001).
+    Filter by tenant_id and optionally domain. Returns [] if query empty.
     """
     tenant_id = require_tenant_id(tenant_id)
     if not query or not query.strip():
         return []
     q = query.strip()
+    domain_clause = " AND s.domain = :domain" if domain is not None else ""
     sql = text("""
         SELECT s.section_id, s.version_hash, COALESCE(r.canonical_url, r.url) AS url, s.text,
                COALESCE(s.page_type, r.page_type) AS page_type,
@@ -102,26 +111,29 @@ def execute_ac_bm25_retrieval(
         JOIN raw_page r ON s.raw_page_id = r.id AND r.tenant_id = s.tenant_id
         WHERE s.tenant_id = :tenant_id AND r.tenant_id = :tenant_id
           AND s.text_tsv @@ websearch_to_tsquery(:config, :query)
+          """ + domain_clause + """
         ORDER BY rank DESC, s.section_id ASC
         LIMIT :k
     """)
+    params: dict[str, Any] = {"tenant_id": tenant_id, "query": q, "config": fts_config, "k": k}
+    if domain is not None:
+        params["domain"] = domain
     with get_db() as session:
-        return session.execute(
-            sql,
-            {"tenant_id": tenant_id, "query": q, "config": fts_config, "k": k},
-        ).fetchall()
+        return session.execute(sql, params).fetchall()
 
 
 def execute_ac_retrieval(
     tenant_id: str | None,
     embedding_str: str,
     k: int,
+    domain: str | None = None,
 ) -> list[tuple[Any, ...]]:
     """
     Run vector retrieval SQL. Joins ac_embeddings, sections, raw_page.
-    Each table enforces tenant_id in JOIN/WHERE. Returns rows (section_id, version_hash, url, text, distance).
+    Filter by tenant_id and optionally domain. Returns rows (section_id, version_hash, url, text, page_type, distance).
     """
     tenant_id = require_tenant_id(tenant_id)
+    domain_clause = " AND ae.domain = :domain" if domain is not None else ""
     sql = text("""
         SELECT s.section_id, s.version_hash, r.url, s.text,
                COALESCE(s.page_type, r.page_type) AS page_type,
@@ -130,14 +142,15 @@ def execute_ac_retrieval(
         JOIN sections s ON ae.tenant_id = s.tenant_id AND ae.section_id = s.section_id
         JOIN raw_page r ON s.raw_page_id = r.id AND r.tenant_id = s.tenant_id
         WHERE ae.tenant_id = :tenant_id AND s.tenant_id = :tenant_id AND r.tenant_id = :tenant_id
+          """ + domain_clause + """
         ORDER BY ae.embedding <-> CAST(:embedding AS vector)
         LIMIT :k
     """)
+    params: dict[str, Any] = {"tenant_id": tenant_id, "embedding": embedding_str, "k": k}
+    if domain is not None:
+        params["domain"] = domain
     with get_db() as session:
-        return session.execute(
-            sql,
-            {"tenant_id": tenant_id, "embedding": embedding_str, "k": k},
-        ).fetchall()
+        return session.execute(sql, params).fetchall()
 
 
 def get_raw_page_metadata(
@@ -198,6 +211,92 @@ def get_sections_by_raw_page_id(
         ]
 
 
+def get_artifact_counts_for_raw_page(
+    tenant_id: str | None,
+    raw_page_id: int,
+) -> tuple[int, int, int]:
+    """
+    Return (sections_count, ac_embeddings_count, ec_embeddings_count) for a raw_page.
+    Used to detect missing artifacts when raw_page content is unchanged.
+    Strict: tenant_id + raw_page_id for sections; ac/ec scoped to those section_ids.
+    """
+    tenant_id = require_tenant_id(tenant_id)
+    with get_db() as session:
+        sections_stmt = (
+            select(func.count(Section.id))
+            .select_from(Section)
+            .where(tenant_where(Section, tenant_id), Section.raw_page_id == raw_page_id)
+        )
+        sections_count = session.execute(sections_stmt).scalar() or 0
+        if sections_count == 0:
+            return (0, 0, 0)
+        section_ids_stmt = (
+            select(Section.section_id)
+            .where(tenant_where(Section, tenant_id), Section.raw_page_id == raw_page_id)
+        )
+        section_ids = [r[0] for r in session.execute(section_ids_stmt).all()]
+        if not section_ids:
+            return (0, 0, 0)
+        ac_stmt = (
+            select(func.count(ACEmbedding.id))
+            .select_from(ACEmbedding)
+            .where(tenant_where(ACEmbedding, tenant_id), ACEmbedding.section_id.in_(section_ids))
+        )
+        ac_count = session.execute(ac_stmt).scalar() or 0
+        entity_ids_stmt = (
+            select(Entity.entity_id)
+            .where(tenant_where(Entity, tenant_id), Entity.section_id.in_(section_ids))
+        )
+        entity_ids = [r[0] for r in session.execute(entity_ids_stmt).all()]
+        ec_count = 0
+        if entity_ids:
+            ec_stmt = (
+                select(func.count(ECEmbedding.id))
+                .select_from(ECEmbedding)
+                .where(tenant_where(ECEmbedding, tenant_id), ECEmbedding.entity_id.in_(entity_ids))
+            )
+            ec_count = session.execute(ec_stmt).scalar() or 0
+    return (sections_count, ac_count, ec_count)
+
+
+def delete_ac_embeddings_for_section_ids(
+    tenant_id: str | None,
+    section_ids: Sequence[str],
+) -> int:
+    """Delete ac_embeddings for given section_ids. Returns count deleted. Enforces tenant_id."""
+    tenant_id = require_tenant_id(tenant_id)
+    if not section_ids:
+        return 0
+    stmt = delete(ACEmbedding).where(
+        tenant_where(ACEmbedding, tenant_id),
+        ACEmbedding.section_id.in_(list(section_ids)),
+    )
+    with get_db() as session:
+        result = session.execute(stmt)
+        return result.rowcount or 0
+
+
+def delete_ec_embeddings_for_section_ids(
+    tenant_id: str | None,
+    section_ids: Sequence[str],
+) -> int:
+    """Delete ec_embeddings for entities whose section_id is in section_ids. Returns count deleted."""
+    tenant_id = require_tenant_id(tenant_id)
+    if not section_ids:
+        return 0
+    entity_ids_subq = (
+        select(Entity.entity_id)
+        .where(tenant_where(Entity, tenant_id), Entity.section_id.in_(list(section_ids)))
+    )
+    stmt = delete(ECEmbedding).where(
+        tenant_where(ECEmbedding, tenant_id),
+        ECEmbedding.entity_id.in_(entity_ids_subq),
+    )
+    with get_db() as session:
+        result = session.execute(stmt)
+        return result.rowcount or 0
+
+
 def get_sections_for_tenant(tenant_id: str | None) -> list[dict[str, Any]]:
     """Return all section records for tenant. Always filter by tenant_id."""
     tenant_id = require_tenant_id(tenant_id)
@@ -220,22 +319,127 @@ def get_sections_for_tenant(tenant_id: str | None) -> list[dict[str, Any]]:
         ]
 
 
+def get_sections_by_domain(tenant_id: str | None, domain: str) -> list[dict[str, Any]]:
+    """Return section records for tenant filtered by domain. Always filter by tenant_id."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = select_section_for_tenant(tenant_id).where(Section.domain == domain)
+    with get_db() as session:
+        rows = session.scalars(stmt).all()
+        return [
+            {
+                "section_id": r.section_id,
+                "heading_path": r.heading_path,
+                "text": r.text,
+                "start_char": r.start_char,
+                "end_char": r.end_char,
+                "version_hash": r.version_hash,
+                "domain": r.domain,
+                "page_type": r.page_type,
+                "crawl_policy_version": r.crawl_policy_version,
+            }
+            for r in rows
+        ]
+
+
+def get_entity_ids_for_sections(tenant_id: str | None, section_ids: Sequence[str]) -> list[str]:
+    """Return entity_id list for entities whose section_id is in section_ids. Tenant-scoped."""
+    tenant_id = require_tenant_id(tenant_id)
+    if not section_ids:
+        return []
+    stmt = (
+        select(Entity.entity_id)
+        .select_from(Entity)
+        .where(tenant_where(Entity, tenant_id), Entity.section_id.in_(section_ids))
+    )
+    with get_db() as session:
+        return list(session.scalars(stmt).distinct().all())
+
+
+def get_domain_index_state(tenant_id: str | None, domain: str) -> dict[str, Any] | None:
+    """Return current domain_index_state row for (tenant_id, domain), or None. Tenant-scoped."""
+    tenant_id = require_tenant_id(tenant_id)
+    with get_db() as session:
+        row = session.get(DomainIndexState, (tenant_id, domain))
+        if row is None:
+            return None
+        return {
+            "tenant_id": row.tenant_id,
+            "domain": row.domain,
+            "ac_version_hash": row.ac_version_hash,
+            "ec_version_hash": row.ec_version_hash,
+            "crawl_policy_version": row.crawl_policy_version,
+            "status": row.status,
+            "last_indexed_at": row.last_indexed_at,
+            "last_error": row.last_error,
+            "error_code": getattr(row, "error_code", None),
+            "created_at": row.created_at,
+            "updated_at": row.updated_at,
+        }
+
+
+def get_domain_index_states_for_tenant(tenant_id: str | None) -> dict[str, dict[str, Any]]:
+    """Return all domain_index_state rows for tenant, keyed by domain. For list_domains join."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = select(DomainIndexState).where(DomainIndexState.tenant_id == tenant_id)
+    with get_db() as session:
+        rows = session.scalars(stmt).all()
+    return {
+        str(r.domain): {
+            "status": r.status,
+            "last_indexed_at": r.last_indexed_at,
+            "last_error": r.last_error,
+        }
+        for r in rows
+    }
+
+
+def upsert_domain_index_state(
+    tenant_id: str | None,
+    domain: str,
+    **fields: Any,
+) -> None:
+    """Insert or update domain_index_state for (tenant_id, domain). Only provided fields are updated. Tenant-scoped."""
+    tenant_id = require_tenant_id(tenant_id)
+    allowed = {"ac_version_hash", "ec_version_hash", "crawl_policy_version", "status", "last_indexed_at", "last_error", "error_code"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    with get_db() as session:
+        row = session.get(DomainIndexState, (tenant_id, domain))
+        if row is not None:
+            for key, value in updates.items():
+                setattr(row, key, value)
+        else:
+            session.add(
+                DomainIndexState(
+                    tenant_id=tenant_id,
+                    domain=domain,
+                    status=updates.get("status", "PENDING"),
+                    ac_version_hash=updates.get("ac_version_hash"),
+                    ec_version_hash=updates.get("ec_version_hash"),
+                    crawl_policy_version=updates.get("crawl_policy_version"),
+                    last_indexed_at=updates.get("last_indexed_at"),
+                    last_error=updates.get("last_error"),
+                    error_code=updates.get("error_code"),
+                )
+            )
+        session.commit()
+
+
 def get_section_by_id(
     tenant_id: str | None,
     section_id: str,
 ) -> dict[str, Any] | None:
-    """Return section by section_id for tenant, or None. Keys: text, version_hash."""
+    """Return section by section_id for tenant, or None. Keys: text, version_hash, domain."""
     tenant_id = require_tenant_id(tenant_id)
     stmt = (
         select_section_for_tenant(tenant_id)
         .where(Section.section_id == section_id)
-        .with_only_columns(Section.text, Section.version_hash)
+        .with_only_columns(Section.text, Section.version_hash, Section.domain)
     )
     with get_db() as session:
         row = session.execute(stmt).first()
         if not row:
             return None
-        return {"text": row[0], "version_hash": row[1]}
+        return {"text": row[0], "version_hash": row[1], "domain": row[2] or ""}
 
 
 def get_sections_by_query(
@@ -259,7 +463,7 @@ def get_sections_by_query(
 
 
 def count_raw_pages_by_domain(tenant_id: str | None, domain: str) -> int:
-    """Count raw_pages for tenant filtered by domain."""
+    """Count raw_pages for tenant filtered by domain. Strict: WHERE tenant_id=:tenant_id AND domain=:domain."""
     tenant_id = require_tenant_id(tenant_id)
     stmt = (
         select(func.count(RawPage.id))
@@ -285,12 +489,36 @@ def count_raw_pages_by_crawl_policy_version(
 
 
 def count_sections_by_domain(tenant_id: str | None, domain: str) -> int:
-    """Count sections for tenant filtered by domain."""
+    """Count sections for tenant filtered by domain. Strict: WHERE tenant_id=:tenant_id AND domain=:domain."""
     tenant_id = require_tenant_id(tenant_id)
     stmt = (
         select(func.count(Section.id))
         .select_from(Section)
         .where(tenant_where(Section, tenant_id), Section.domain == domain)
+    )
+    with get_db() as session:
+        return session.execute(stmt).scalar() or 0
+
+
+def count_ac_embeddings_by_domain(tenant_id: str | None, domain: str) -> int:
+    """Count ac_embeddings for tenant filtered by domain. Strict: WHERE tenant_id=:tenant_id AND domain=:domain."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = (
+        select(func.count(ACEmbedding.id))
+        .select_from(ACEmbedding)
+        .where(tenant_where(ACEmbedding, tenant_id), ACEmbedding.domain == domain)
+    )
+    with get_db() as session:
+        return session.execute(stmt).scalar() or 0
+
+
+def count_ec_embeddings_by_domain(tenant_id: str | None, domain: str) -> int:
+    """Count ec_embeddings for tenant filtered by domain. Strict: WHERE tenant_id=:tenant_id AND domain=:domain."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = (
+        select(func.count(ECEmbedding.id))
+        .select_from(ECEmbedding)
+        .where(tenant_where(ECEmbedding, tenant_id), ECEmbedding.domain == domain)
     )
     with get_db() as session:
         return session.execute(stmt).scalar() or 0
@@ -500,18 +728,22 @@ def get_evidence_ids_by_section_ids(
 def get_evidence_by_ids(
     tenant_id: str | None,
     evidence_ids: Sequence[str],
+    domain: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Return evidence rows for given evidence_ids. Always filter by tenant_id."""
+    """Return evidence rows for given evidence_ids. Filter by tenant_id and optionally domain."""
     tenant_id = require_tenant_id(tenant_id)
     if not evidence_ids:
         return []
     stmt = select_evidence_for_tenant(tenant_id).where(Evidence.evidence_id.in_(list(evidence_ids)))
+    if domain is not None:
+        stmt = stmt.where(Evidence.domain == domain)
     with get_db() as session:
         rows = session.scalars(stmt).all()
         return [
             {
                 "evidence_id": r.evidence_id,
                 "tenant_id": r.tenant_id,
+                "domain": r.domain,
                 "section_id": r.section_id,
                 "url": r.url,
                 "quote_span": r.quote_span,
@@ -528,7 +760,7 @@ def insert_evidence(
     tenant_id: str | None,
     evidence: Sequence[dict[str, Any]],
 ) -> None:
-    """Bulk insert evidence. Each dict: evidence_id, section_id, url?, quote_span?, start_char?, end_char?, version_hash?."""
+    """Bulk insert evidence. Each dict: evidence_id, section_id, domain, url?, quote_span?, start_char?, end_char?, version_hash?."""
     tenant_id = require_tenant_id(tenant_id)
     if not evidence:
         return
@@ -536,6 +768,7 @@ def insert_evidence(
         objs = [
             Evidence(
                 tenant_id=tenant_id,
+                domain=e["domain"],
                 evidence_id=e["evidence_id"],
                 section_id=e["section_id"],
                 url=e.get("url"),
@@ -595,7 +828,7 @@ def insert_ec_embeddings(
     tenant_id: str | None,
     records: Sequence[dict[str, Any]],
 ) -> None:
-    """Bulk insert ec_embeddings. Each dict: entity_id, embedding, model?, dim?."""
+    """Bulk insert ec_embeddings. Each dict: entity_id, embedding, domain, model?, dim?."""
     tenant_id = require_tenant_id(tenant_id)
     if not records:
         return
@@ -603,6 +836,7 @@ def insert_ec_embeddings(
         objs = [
             ECEmbedding(
                 tenant_id=tenant_id,
+                domain=r["domain"],
                 entity_id=r["entity_id"],
                 embedding=r["embedding"],
                 model=r.get("model"),
@@ -728,21 +962,24 @@ def execute_ec_retrieval(
     tenant_id: str | None,
     embedding_str: str,
     k: int,
+    domain: str | None = None,
 ) -> list[tuple[Any, ...]]:
-    """Vector search on ec_embeddings. Returns (entity_id, distance). Tenant-filtered in WHERE."""
+    """Vector search on ec_embeddings. Returns (entity_id, distance). Filter by tenant_id and optionally domain."""
     tenant_id = require_tenant_id(tenant_id)
+    domain_clause = " AND ee.domain = :domain" if domain is not None else ""
     sql = text("""
         SELECT ee.entity_id, ee.embedding <-> CAST(:embedding AS vector) AS distance
         FROM ec_embeddings ee
         WHERE ee.tenant_id = :tenant_id
+          """ + domain_clause + """
         ORDER BY ee.embedding <-> CAST(:embedding AS vector)
         LIMIT :k
     """)
+    params: dict[str, Any] = {"tenant_id": tenant_id, "embedding": embedding_str, "k": k}
+    if domain is not None:
+        params["domain"] = domain
     with get_db() as session:
-        return session.execute(
-            sql,
-            {"tenant_id": tenant_id, "embedding": embedding_str, "k": k},
-        ).fetchall()
+        return session.execute(sql, params).fetchall()
 
 
 def get_entities_by_ids(

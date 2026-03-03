@@ -90,6 +90,8 @@ export interface EvalMetricsLatestOut {
   per_domain: Record<string, EvalMetricsRates>;
 }
 
+export type UiStatus = "UNINDEXED" | "INDEXING" | "EVALUATING" | "DONE" | "FAILED";
+
 export interface DomainListItem {
   domain: string;
   status: "pending" | "running" | "done" | "failed";
@@ -100,6 +102,18 @@ export interface DomainListItem {
   last_run_id: string | null;
   last_run_created_at: string | null;
   failure_reason: string | null;
+  /** Index state: PENDING | RUNNING | DONE | FAILED | UNINDEXED */
+  index_status?: string | null;
+  last_indexed_at?: string | null;
+  last_error?: string | null;
+  /** API: index_error (same as last_error when present) */
+  index_error?: string | null;
+  /** Latest eval job status: PENDING | RUNNING | DONE | FAILED | NONE */
+  eval_status?: string | null;
+  /** RUNNING when this domain is current_domain of a running orchestrate job */
+  orchestration_status?: string | null;
+  /** Single source of truth for badge: UNINDEXED | INDEXING | EVALUATING | DONE | FAILED */
+  ui_status?: UiStatus | null;
 }
 
 export interface DomainsListResponse {
@@ -114,6 +128,13 @@ export interface DomainsCreateResponse {
   existing: string[];
 }
 
+export interface DesiredHashesRow {
+  domain: string;
+  ac_version_hash: string;
+  ec_version_hash: string;
+  crawl_policy_version: string;
+}
+
 export interface DomainsEvaluateResponse {
   status: string;
   message: string;
@@ -121,6 +142,11 @@ export interface DomainsEvaluateResponse {
   status_url: string;
   run_id: string | null;
   started_domains: string[];
+  index_status?: "pending" | "up_to_date" | "running";
+  index_job_id?: string | null;
+  eval_job_id?: string | null;
+  orchestration_job_id?: string | null;
+  desired_hashes?: DesiredHashesRow[];
 }
 
 export interface DomainJobStatusResponse {

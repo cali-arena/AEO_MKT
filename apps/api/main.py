@@ -101,3 +101,4 @@ if (os.getenv("ENV") or os.getenv("ENVIRONMENT") or "").lower() == "test":
     from apps.api.routes import debug
 
     app.include_router(debug.router, prefix="/debug", tags=["debug"])
+    app.include_router(debug.index_stats_router, prefix="/tenants", tags=["debug"])

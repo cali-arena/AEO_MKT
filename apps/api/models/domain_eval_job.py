@@ -35,6 +35,7 @@ class DomainEvalJob(Base):
     total: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
     completed: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     worker_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(

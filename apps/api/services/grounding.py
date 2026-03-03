@@ -195,6 +195,7 @@ def create_evidence_for_sections(
             {
                 "evidence_id": eid,
                 "section_id": section["section_id"],
+                "domain": section.get("domain") or "",
                 "url": section.get("url") or default_url,
                 "quote_span": quote_span,
                 "start_char": 0,

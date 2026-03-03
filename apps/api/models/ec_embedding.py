@@ -1,6 +1,6 @@
 """ec_embeddings table. (tenant_id, entity_id) with vector embedding, model, dim, created_at."""
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, String
+from sqlalchemy import BigInteger, DateTime, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
@@ -14,10 +14,13 @@ class ECEmbedding(Base):
     __table_args__ = (
         Index("ix_ec_embeddings_tenant_entity", "tenant_id", "entity_id"),
         Index("ix_ec_embeddings_tenant_id", "tenant_id", "id"),
+        Index("ix_ec_embeddings_tenant_domain", "tenant_id", "domain"),
+        Index("ix_ec_embeddings_tenant_domain_created_at", "tenant_id", "domain", "created_at"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
     entity_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
     model: Mapped[str | None] = mapped_column(String(128), nullable=True)

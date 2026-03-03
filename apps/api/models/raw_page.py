@@ -9,7 +9,10 @@ from apps.api.models.base import Base
 
 class RawPage(Base):
     __tablename__ = "raw_page"
-    __table_args__ = (Index("ix_raw_page_tenant_id", "tenant_id", "id"),)
+    __table_args__ = (
+        Index("ix_raw_page_tenant_id", "tenant_id", "id"),
+        Index("ix_raw_page_tenant_domain", "tenant_id", "domain"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
@@ -21,7 +24,7 @@ class RawPage(Base):
     fetched_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=False)
+    domain: Mapped[str] = mapped_column(String(255), nullable=False, index=False)
     page_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=False)
     crawl_policy_version: Mapped[str | None] = mapped_column(String(12), nullable=True, index=False)
     crawl_decision: Mapped[str | None] = mapped_column(String(32), nullable=True)

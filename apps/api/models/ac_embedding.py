@@ -1,6 +1,6 @@
 """ac_embeddings model."""
 
-from sqlalchemy import BigInteger, Index, String
+from sqlalchemy import BigInteger, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
@@ -13,10 +13,14 @@ EMBEDDING_DIM = 384
 
 class ACEmbedding(Base):
     __tablename__ = "ac_embeddings"
-    __table_args__ = (Index("ix_ac_embeddings_tenant_section", "tenant_id", "section_id"),)
+    __table_args__ = (
+        Index("ix_ac_embeddings_tenant_section", "tenant_id", "section_id"),
+        Index("ix_ac_embeddings_tenant_domain", "tenant_id", "domain"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
     section_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
 

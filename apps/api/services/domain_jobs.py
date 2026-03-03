@@ -44,6 +44,7 @@ def _row_to_job(row: Any) -> dict[str, Any]:
         "total": int(row["total"] or 0),
         "completed": int(row["completed"] or 0),
         "error_message": row.get("error_message"),
+        "error_code": row.get("error_code"),
         "run_id": str(row["run_id"]) if row.get("run_id") else None,
         "created_at": row.get("created_at"),
         "started_at": row.get("started_at"),
@@ -61,7 +62,7 @@ def enqueue_domain_eval_job(tenant_id: str | None, domains: Sequence[str] | None
         """
         INSERT INTO domain_eval_job (id, tenant_id, domains, status, total, completed)
         VALUES (:job_id, :tenant_id, CAST(:domains_json AS jsonb), 'PENDING', :total, 0)
-        RETURNING id, tenant_id, domains, status, total, completed, error_message, run_id,
+        RETURNING id, tenant_id, domains, status, total, completed, error_message, error_code, run_id,
                   created_at, started_at, finished_at, worker_id
         """
     )
@@ -97,11 +98,12 @@ def claim_domain_eval_job(worker_id: str, lease_seconds: int) -> dict[str, Any] 
             started_at = COALESCE(j.started_at, NOW()),
             finished_at = NULL,
             error_message = NULL,
+            error_code = NULL,
             worker_id = :worker_id,
             lease_expires_at = NOW() + (CAST(:lease_seconds AS TEXT) || ' seconds')::interval
         FROM picked
         WHERE j.id = picked.id
-        RETURNING j.id, j.tenant_id, j.domains, j.status, j.total, j.completed, j.error_message, j.run_id,
+        RETURNING j.id, j.tenant_id, j.domains, j.status, j.total, j.completed, j.error_message, j.error_code, j.run_id,
                   j.created_at, j.started_at, j.finished_at, j.worker_id
         """
     )
@@ -121,6 +123,7 @@ def finish_domain_eval_job(
     status: str,
     completed: int,
     error_message: str | None = None,
+    error_code: str | None = None,
     run_id: str | None = None,
 ) -> None:
     normalized_status = status.upper().strip()
@@ -132,6 +135,7 @@ def finish_domain_eval_job(
         SET status = :status,
             completed = :completed,
             error_message = :error_message,
+            error_code = :error_code,
             run_id = CAST(:run_id AS uuid),
             finished_at = NOW(),
             lease_expires_at = NULL
@@ -146,6 +150,7 @@ def finish_domain_eval_job(
                 "status": normalized_status,
                 "completed": max(int(completed), 0),
                 "error_message": error_message,
+                "error_code": error_code,
                 "run_id": run_id,
             },
         )
@@ -155,7 +160,7 @@ def get_domain_eval_job(tenant_id: str | None, job_id: str) -> dict[str, Any] | 
     tenant_id = require_tenant_id(tenant_id)
     stmt = text(
         """
-        SELECT id, tenant_id, domains, status, total, completed, error_message, run_id,
+        SELECT id, tenant_id, domains, status, total, completed, error_message, error_code, run_id,
                created_at, started_at, finished_at, worker_id
         FROM domain_eval_job
         WHERE tenant_id = :tenant_id AND id = CAST(:job_id AS uuid)
@@ -189,3 +194,28 @@ def get_latest_domain_job_statuses(tenant_id: str | None) -> dict[str, str]:
     with get_db() as session:
         rows = session.execute(stmt, {"tenant_id": tenant_id}).all()
     return {str(r[0]): str(r[1]).upper() for r in rows}
+
+
+def get_pending_or_running_job_id_for_domain(tenant_id: str | None, domain: str) -> str | None:
+    """Return job id of the latest PENDING or RUNNING job that includes this domain, or None. Tenant-scoped."""
+    tenant_id = require_tenant_id(tenant_id)
+    domain_json = json.dumps([domain.strip().lower()])
+    stmt = text(
+        """
+        SELECT id
+        FROM domain_eval_job
+        WHERE tenant_id = :tenant_id
+          AND status IN ('PENDING', 'RUNNING')
+          AND domains @> CAST(:domain_json AS jsonb)
+        ORDER BY created_at DESC
+        LIMIT 1
+        """
+    )
+    with get_db() as session:
+        row = session.execute(
+            stmt,
+            {"tenant_id": tenant_id, "domain_json": domain_json},
+        ).first()
+    if row is None:
+        return None
+    return str(row[0])

@@ -12,11 +12,12 @@ from apps.api.tests.conftest import requires_db
 def tenant_with_sections():
     tenant_id = "tenant_bm25_test"
     url = "https://example.com/bm25"
-    pid = insert_raw_page(tenant_id, url, text="Main")
+    domain = "example.com"
+    pid = insert_raw_page(tenant_id, url, text="Main", domain=domain)
     insert_sections(tenant_id, pid, [
-        {"section_id": "sec_1", "text": "long distance moving and relocation services", "version_hash": "v1"},
-        {"section_id": "sec_2", "text": "local moving and storage options", "version_hash": "v2"},
-        {"section_id": "sec_3", "text": "commercial relocation nationwide", "version_hash": "v3"},
+        {"section_id": "sec_1", "text": "long distance moving and relocation services", "version_hash": "v1", "domain": domain},
+        {"section_id": "sec_2", "text": "local moving and storage options", "version_hash": "v2", "domain": domain},
+        {"section_id": "sec_3", "text": "commercial relocation nationwide", "version_hash": "v3", "domain": domain},
     ])
     yield tenant_id
 

@@ -28,7 +28,8 @@ def index_ac(
     if not sections:
         return 0
 
-    existing = get_existing_ac_section_ids(tenant_id)
+    domain = sections[0].get("domain") if sections else None
+    existing = get_existing_ac_section_ids(tenant_id, domain=domain)
     to_index = [s for s in sections if s["section_id"] not in existing]
     if not to_index:
         logger.info("index_ac tenant_id=%s all %d sections already indexed", tenant_id, len(sections))
@@ -40,7 +41,7 @@ def index_ac(
         raise RuntimeError("embed_sections returned wrong length")
 
     records = [
-        {"section_id": s["section_id"], "embedding": v}
+        {"section_id": s["section_id"], "embedding": v, "domain": s.get("domain") or ""}
         for s, v in zip(to_index, vectors)
     ]
     insert_ac_embeddings(tenant_id, records)

@@ -20,6 +20,8 @@ class Section(Base):
     __tablename__ = "sections"
     __table_args__ = (
         Index("ix_sections_tenant_id", "tenant_id", "id"),
+        Index("ix_sections_tenant_domain", "tenant_id", "domain"),
+        Index("ix_sections_tenant_domain_created_at", "tenant_id", "domain", "created_at"),
         Index("ix_sections_text_tsv", "text_tsv", postgresql_using="gin"),
     )
 
@@ -34,7 +36,7 @@ class Section(Base):
     section_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     version_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=True)
-    domain: Mapped[str | None] = mapped_column(String(255), nullable=True, index=False)
+    domain: Mapped[str] = mapped_column(String(255), nullable=False, index=False)
     page_type: Mapped[str | None] = mapped_column(String(64), nullable=True, index=False)
     crawl_policy_version: Mapped[str | None] = mapped_column(String(12), nullable=True, index=False)
     # FTS: config via FTS_LANG (default 'simple')

@@ -10,13 +10,35 @@ import { MetricBadge } from "@/components/ui/MetricBadge";
 import { apiFetch, ApiError } from "@/lib/api";
 import type {
   DomainJobStatusResponse,
+  DomainListItem,
   DomainsCreateResponse,
   DomainsEvaluateResponse,
   DomainsListResponse,
   EvalMetricsRates,
 } from "@/lib/types";
 
-type SortKey = keyof EvalMetricsRates | "domain";
+type SortKey = keyof EvalMetricsRates | "domain" | "status" | "actions";
+
+function statusBadgeClass(uiStatus: string | null | undefined): string {
+  if (!uiStatus) return "bg-gray-100 text-gray-700";
+  const u = uiStatus.toUpperCase();
+  if (u === "DONE") return "bg-emerald-100 text-emerald-800";
+  if (u === "FAILED") return "bg-rose-100 text-rose-800";
+  if (u === "EVALUATING") return "bg-blue-100 text-blue-800";
+  if (u === "INDEXING") return "bg-amber-100 text-amber-800";
+  return "bg-gray-100 text-gray-600";
+}
+
+function statusDetailsTooltip(row: DomainListItem): string {
+  const parts: string[] = [];
+  if (row.index_status) parts.push(`Index: ${row.index_status}`);
+  if (row.last_indexed_at) parts.push(`Last indexed: ${new Date(row.last_indexed_at).toLocaleString()}`);
+  if (row.eval_status) parts.push(`Eval: ${row.eval_status}`);
+  if (row.last_run_created_at) parts.push(`Last eval: ${new Date(row.last_run_created_at).toLocaleString()}`);
+  if (row.index_error) parts.push(`Index error: ${row.index_error}`);
+  if (row.failure_reason) parts.push(`Eval error: ${row.failure_reason}`);
+  return parts.join("\n");
+}
 
 const DOMAIN_REGEX =
   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
@@ -94,7 +116,11 @@ export default function DomainsPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const hasInFlightRows = useMemo(
-    () => (data?.domains ?? []).some((row) => row.status === "pending" || row.status === "running"),
+    () =>
+      (data?.domains ?? []).some((row) => {
+        const u = row.ui_status;
+        return u && u !== "DONE" && u !== "FAILED";
+      }),
     [data?.domains]
   );
 
@@ -233,8 +259,8 @@ export default function DomainsPage() {
         body: JSON.stringify(payload),
         tenantId,
       });
-      setRunMessage({ type: "success", text: successMessage || res.message });
-      setActiveJobId(res.job_id);
+      setRunMessage({ type: "success", text: res.message || successMessage });
+      setActiveJobId(res.orchestration_job_id ?? res.eval_job_id ?? res.job_id ?? null);
       await refresh();
     },
     [tenantId, refresh]
@@ -494,20 +520,26 @@ export default function DomainsPage() {
             <tr>
               {[
                 { key: "domain" as const, label: "Domain" },
+                { key: "status" as const, label: "Status" },
                 { key: "mention_rate" as const, label: "Mention" },
                 { key: "citation_rate" as const, label: "Citation" },
                 { key: "attribution_rate" as const, label: "Attribution" },
                 { key: "hallucination_rate" as const, label: "Hallucination" },
+                { key: "actions" as const, label: "" },
               ].map(({ key, label }) => (
                 <th key={key} className="px-3 py-2 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                  <button type="button" onClick={() => toggleSort(key)} className="flex items-center gap-1 hover:text-gray-900">
-                    {label}
-                    {sortKey === key ? (
-                      sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
-                    ) : (
-                      <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
-                    )}
-                  </button>
+                  {key === "status" || key === "actions" ? (
+                    label
+                  ) : (
+                    <button type="button" onClick={() => toggleSort(key)} className="flex items-center gap-1 hover:text-gray-900">
+                      {label}
+                      {sortKey === key ? (
+                        sortDir === "asc" ? <ArrowUp className="h-3.5 w-3.5" /> : <ArrowDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+                      )}
+                    </button>
+                  )}
                 </th>
               ))}
             </tr>
@@ -515,7 +547,7 @@ export default function DomainsPage() {
           <tbody className="divide-y divide-gray-200">
             {domainsSorted.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-8 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-3 py-8 text-center text-sm text-gray-500">
                   No monitored domains yet.
                 </td>
               </tr>
@@ -523,6 +555,11 @@ export default function DomainsPage() {
             {domainsSorted.map((row) => {
               const rates = row.latest_rates;
               const isCompleted = row.status === "done";
+              const uiStatus = row.ui_status ?? null;
+              const isIndexFailed = uiStatus === "FAILED" || (row.index_status ?? "").toUpperCase() === "FAILED";
+              const isEvalFailed = row.status === "failed";
+              const showRetry = isIndexFailed || isEvalFailed;
+              const tooltip = statusDetailsTooltip(row);
               return (
                 <motion.tr
                   key={row.domain}
@@ -539,6 +576,33 @@ export default function DomainsPage() {
                   }`}
                 >
                   <td className="px-3 py-2 font-medium text-primary">{row.domain}</td>
+                  <td className="px-3 py-2" title={tooltip || undefined}>
+                    <div className="flex flex-col gap-0.5">
+                      <span
+                        className={`inline-flex w-fit rounded-md px-2 py-0.5 text-xs font-medium ${statusBadgeClass(uiStatus ?? undefined)}`}
+                      >
+                        {uiStatus ?? "—"}
+                      </span>
+                      {(row.index_status || row.last_indexed_at) && (
+                        <span className="text-xs text-gray-500">
+                          {[row.index_status, row.last_indexed_at ? new Date(row.last_indexed_at).toLocaleString() : null]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
+                      {row.eval_status && row.eval_status !== "NONE" && (
+                        <span className="text-xs text-gray-500">
+                          Eval {row.eval_status}
+                          {row.last_run_created_at ? ` · ${new Date(row.last_run_created_at).toLocaleString()}` : ""}
+                        </span>
+                      )}
+                      {(row.index_error || row.failure_reason) && (
+                        <span className="max-w-[200px] truncate text-xs text-rose-600" title={row.index_error ?? row.failure_reason ?? ""}>
+                          {row.index_error ?? row.failure_reason}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   {isCompleted && rates ? (
                     <>
                       <td className="px-3 py-2">
@@ -580,10 +644,10 @@ export default function DomainsPage() {
                           {(row.status === "running" || (row.status === "pending" && (activeJobId || hasInFlightRows)))
                             ? "Running..."
                             : row.status === "failed"
-                            ? "Failed"
-                            : row.status === "pending"
-                              ? "Pending"
-                              : "Running..."}
+                              ? "Failed"
+                              : row.status === "pending"
+                                ? "Pending"
+                                : "Running..."}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-500">-</td>
@@ -591,6 +655,18 @@ export default function DomainsPage() {
                       <td className="px-3 py-2 text-xs text-gray-500">-</td>
                     </>
                   )}
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    {showRetry && (
+                      <button
+                        type="button"
+                        onClick={() => runEval(row.domain)}
+                        disabled={runLoading}
+                        className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </td>
                 </motion.tr>
               );
             })}

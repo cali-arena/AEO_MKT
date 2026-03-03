@@ -98,10 +98,12 @@ def test_retrieve_ec_returns_entities_with_snippet_from_evidence(mock_fetch) -> 
 @requires_db
 def test_ac_ec_tenant_isolation() -> None:
     """AC and EC both respect tenant isolation: tenant B gets no tenant A data."""
-    pid_a = insert_raw_page(TENANT_A, URL, text="Tenant A content")
-    pid_b = insert_raw_page(TENANT_B, "https://b.com", text="Tenant B content")
-    insert_sections(TENANT_A, pid_a, [{"section_id": "sec_a_1", "text": "Tenant A section", "version_hash": "v1"}])
-    insert_sections(TENANT_B, pid_b, [{"section_id": "sec_b_1", "text": "Tenant B section", "version_hash": "v2"}])
+    domain_a = "example.com"
+    domain_b = "b.com"
+    pid_a = insert_raw_page(TENANT_A, URL, text="Tenant A content", domain=domain_a)
+    pid_b = insert_raw_page(TENANT_B, "https://b.com", text="Tenant B content", domain=domain_b)
+    insert_sections(TENANT_A, pid_a, [{"section_id": "sec_a_1", "text": "Tenant A section", "version_hash": "v1", "domain": domain_a}])
+    insert_sections(TENANT_B, pid_b, [{"section_id": "sec_b_1", "text": "Tenant B section", "version_hash": "v2", "domain": domain_b}])
     index_ac(TENANT_A, [{"section_id": "sec_a_1", "text": "Tenant A section", "version_hash": "v1", "url": URL}])
     index_ac(TENANT_B, [{"section_id": "sec_b_1", "text": "Tenant B section", "version_hash": "v2", "url": "https://b.com"}])
 

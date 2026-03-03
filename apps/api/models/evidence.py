@@ -9,10 +9,15 @@ from apps.api.models.base import Base
 
 class Evidence(Base):
     __tablename__ = "evidence"
-    __table_args__ = (Index("ix_evidence_tenant_id", "tenant_id", "id"),)
+    __table_args__ = (
+        Index("ix_evidence_tenant_id", "tenant_id", "id"),
+        Index("ix_evidence_tenant_domain", "tenant_id", "domain"),
+        Index("ix_evidence_tenant_domain_created_at", "tenant_id", "domain", "created_at"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id: Mapped[str] = mapped_column(String(255), nullable=False)  # indexed via __table_args__
+    domain: Mapped[str] = mapped_column(Text, nullable=False)
     evidence_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     section_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)

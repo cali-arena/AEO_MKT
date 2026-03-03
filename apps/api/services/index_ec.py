@@ -334,8 +334,9 @@ def build_ec(
     canonical_strings = [e["canonical_name"] or "" for e in entities_map.values()]
     fn = embed_fn if embed_fn is not None else embed_texts
     embeddings = fn(canonical_strings)
+    # Tenant-wide build: no single domain; use empty string for NOT NULL
     records = [
-        {"entity_id": eid, "embedding": embeddings[i]}
+        {"entity_id": eid, "embedding": embeddings[i], "domain": ""}
         for i, eid in enumerate(entities_map)
     ]
     insert_ec_embeddings(tenant_id, records)
@@ -387,7 +388,9 @@ def index_ec(tenant_id: str | None, raw_page_id: int) -> dict[str, Any]:
             tenant_id, text, section_id, url, version_hash
         )
 
+        domain = s.get("domain") or ""
         for ev in evidence_list:
+            ev["domain"] = domain
             insert_evidence(tenant_id, [ev])
             evidence_count += 1
 
@@ -406,7 +409,7 @@ def index_ec(tenant_id: str | None, raw_page_id: int) -> dict[str, Any]:
         names = [e["name"] or "" for e in entities_to_embed]
         embs = embed_texts(names)
         records = [
-            {"entity_id": e["entity_id"], "embedding": embs[i]}
+            {"entity_id": e["entity_id"], "embedding": embs[i], "domain": e.get("domain") or ""}
             for i, e in enumerate(entities_to_embed)
         ]
         insert_ec_embeddings(tenant_id, records)

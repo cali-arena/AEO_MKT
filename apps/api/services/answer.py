@@ -193,6 +193,7 @@ def _answer_impl(query: str, tenant_id: str) -> AnswerResponse:
             "start_char": start_char,
             "end_char": end_char,
             "version_hash": section.get("version_hash"),
+            "domain": section.get("domain") or "",
         })
 
     evidence_map = build_evidence_map(tenant_id, retrieval_results)

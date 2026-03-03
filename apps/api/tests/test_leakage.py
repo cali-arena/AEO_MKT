@@ -25,20 +25,24 @@ TEXT_A = "Tenant A exclusive moving services and pricing."
 TEXT_B = "Tenant B exclusive storage and long-distance relocation."
 
 
+DOMAIN_A = "a.example.com"
+DOMAIN_B = "b.example.com"
+
+
 @pytest.fixture
 def seeded_data():
     """Insert one raw_page, one section, one embedding, one evidence per tenant."""
-    pid_a = insert_raw_page(TENANT_A, URL_A, text="Content A")
-    pid_b = insert_raw_page(TENANT_B, URL_B, text="Content B")
+    pid_a = insert_raw_page(TENANT_A, URL_A, text="Content A", domain=DOMAIN_A)
+    pid_b = insert_raw_page(TENANT_B, URL_B, text="Content B", domain=DOMAIN_B)
     insert_sections(
         TENANT_A,
         pid_a,
-        [{"section_id": SECTION_A_ID, "text": TEXT_A, "version_hash": "vha"}],
+        [{"section_id": SECTION_A_ID, "text": TEXT_A, "version_hash": "vha", "domain": DOMAIN_A}],
     )
     insert_sections(
         TENANT_B,
         pid_b,
-        [{"section_id": SECTION_B_ID, "text": TEXT_B, "version_hash": "vhb"}],
+        [{"section_id": SECTION_B_ID, "text": TEXT_B, "version_hash": "vhb", "domain": DOMAIN_B}],
     )
     yield {"pid_a": pid_a, "pid_b": pid_b}
 
@@ -50,8 +54,8 @@ def seeded_and_indexed_data(seeded_data):
     pid_b = seeded_data["pid_b"]
     sections_a = get_sections_by_raw_page_id(TENANT_A, pid_a)
     sections_b = get_sections_by_raw_page_id(TENANT_B, pid_b)
-    ac_a = [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": URL_A} for s in sections_a]
-    ac_b = [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": URL_B} for s in sections_b]
+    ac_a = [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": URL_A, "domain": s.get("domain", "")} for s in sections_a]
+    ac_b = [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": URL_B, "domain": s.get("domain", "")} for s in sections_b]
     if ac_a:
         index_ac(TENANT_A, ac_a)
     if ac_b:

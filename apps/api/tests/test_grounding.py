@@ -50,13 +50,14 @@ def test_has_evidence_not_refused() -> None:
 
     tenant_id = "tenant_has_evidence_xyz"
     url = "https://example.com/doc"
-    pid = insert_raw_page(tenant_id, url, text="Doc content with evidence.")
+    domain = "example.com"
+    pid = insert_raw_page(tenant_id, url, text="Doc content with evidence.", domain=domain)
     sections = [
-        {"section_id": "ev_sec_1", "text": "Evidence section 1 content.", "version_hash": "vh1"},
-        {"section_id": "ev_sec_2", "text": "Evidence section 2 content.", "version_hash": "vh2"},
+        {"section_id": "ev_sec_1", "text": "Evidence section 1 content.", "version_hash": "vh1", "domain": domain},
+        {"section_id": "ev_sec_2", "text": "Evidence section 2 content.", "version_hash": "vh2", "domain": domain},
     ]
     insert_sections(tenant_id, pid, sections)
-    index_ac(tenant_id, [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": url} for s in sections])
+    index_ac(tenant_id, [{"section_id": s["section_id"], "text": s["text"], "version_hash": s["version_hash"], "url": url, "domain": domain} for s in sections])
 
     resp = _post_answer(tenant_id, "evidence")
     assert resp.status_code == 200
