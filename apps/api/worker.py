@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.exc import ProgrammingError
 
+from apps.api.ingest import ingest_domain_sync
 from apps.api.services.domain_jobs import claim_domain_eval_job, finish_domain_eval_job
 from apps.api.services.eval_runner import run_eval_sync
 from apps.api.services.repo import list_eval_domains
@@ -69,12 +70,15 @@ def _process_job(job: dict, worker_id: str) -> None:
     try:
         if domains:
             for domain in domains:
+                logger.info("ingest_start tenant_id=%s domain=%s", tenant_id, domain)
+                ingest_domain_sync(tenant_id, domain)
+                logger.info("ingest_done tenant_id=%s domain=%s", tenant_id, domain)
                 result = run_eval_sync(tenant_id, domain)
-                completed += 1
                 if result.get("run_id"):
                     last_run_id = str(result["run_id"])
                 if result.get("ok") is False:
                     raise RuntimeError(str(result.get("error") or f"evaluation failed for domain={domain}"))
+                completed += 1
         else:
             result = run_eval_sync(tenant_id, None)
             completed = 1

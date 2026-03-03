@@ -95,6 +95,8 @@ export interface DomainListItem {
   status: "pending" | "running" | "done" | "failed";
   latest_rates: EvalMetricsRates | null;
   total_results?: number;
+  refused_count?: number;
+  ok_count?: number;
   last_run_id: string | null;
   last_run_created_at: string | null;
   failure_reason: string | null;

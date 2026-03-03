@@ -60,6 +60,8 @@ class DomainRow(BaseModel):
     status: Literal["pending", "running", "done", "failed"]
     latest_rates: EvalMetricsRates | None = None
     total_results: int = 0
+    refused_count: int = 0
+    ok_count: int = 0
     last_run_id: str | None = None
     last_run_created_at: str | None = None
     failure_reason: str | None = None
@@ -134,24 +136,52 @@ def _format_job_status(status: str) -> Literal["pending", "running", "done", "fa
     return "pending"
 
 
+def _status_from_results(total_results: int, refused_count: int, ok_count: int) -> Literal["pending", "done", "failed"]:
+    if total_results <= 0:
+        return "pending"
+    if refused_count >= total_results:
+        return "failed"
+    if ok_count > 0:
+        return "done"
+    return "pending"
+
+
 @router.get("/tenants/{tenant_id}/domains", response_model=DomainsListResponse)
 async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListResponse:
     tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    monitored = list_eval_domains(tenant)
     run = get_latest_eval_run(tenant)
     run_id: str | None = str(run.id) if run is not None else None
     aggregates = get_domain_aggregates_from_eval_result(tenant)
     domain_job_status = get_latest_domain_job_statuses(tenant)
     agg_by_domain = {a["domain"]: a for a in aggregates}
+    for domain in monitored:
+        if domain not in agg_by_domain:
+            agg_by_domain[domain] = {
+                "domain": domain,
+                "total_results": 0,
+                "refused_count": 0,
+                "ok_count": 0,
+                "mention_rate": 0.0,
+                "citation_rate": 0.0,
+                "attribution_rate": 0.0,
+                "hallucination_rate": 0.0,
+                "refusal_reason_summary": None,
+                "last_run_id": None,
+                "last_created_at": None,
+            }
     for domain in domain_job_status:
         if domain not in agg_by_domain:
             agg_by_domain[domain] = {
                 "domain": domain,
                 "total_results": 0,
+                "refused_count": 0,
+                "ok_count": 0,
                 "mention_rate": 0.0,
                 "citation_rate": 0.0,
                 "attribution_rate": 0.0,
                 "hallucination_rate": 0.0,
-                "status": "PENDING",
+                "refusal_reason_summary": None,
                 "last_run_id": None,
                 "last_created_at": None,
             }
@@ -163,12 +193,14 @@ async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListR
     for domain in sorted(agg_by_domain):
         agg = agg_by_domain[domain]
         job_status = domain_job_status.get(domain)
+        total_results = int(agg.get("total_results") or 0)
+        refused_count = int(agg.get("refused_count") or 0)
+        ok_count = int(agg.get("ok_count") or 0)
         if job_status == "RUNNING":
             status: Literal["pending", "running", "done", "failed"] = "running"
         else:
-            raw = (agg["status"] or "PENDING").upper()
-            status = "failed" if raw == "FAILED" else "done" if raw == "DONE" else "pending"
-            if job_status in {"FAILED", "PENDING"} and raw == "PENDING":
+            status = _status_from_results(total_results, refused_count, ok_count)
+            if job_status in {"FAILED", "PENDING"} and total_results == 0:
                 status = _format_job_status(job_status)
         if status == "pending":
             pending_count += 1
@@ -190,10 +222,12 @@ async def list_domains(tenant_id: str, auth_tenant_id: TenantId) -> DomainsListR
                 domain=domain,
                 status=status,
                 latest_rates=latest_rates,
-                total_results=int(agg.get("total_results") or 0),
+                total_results=total_results,
+                refused_count=refused_count,
+                ok_count=ok_count,
                 last_run_id=agg.get("last_run_id"),
                 last_run_created_at=last_created.isoformat() if last_created else None,
-                failure_reason=None,
+                failure_reason=(agg.get("refusal_reason_summary") if status == "failed" else None),
             )
         )
     logger.info(

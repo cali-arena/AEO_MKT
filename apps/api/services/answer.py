@@ -157,8 +157,16 @@ def _answer_impl(query: str, tenant_id: str) -> AnswerResponse:
     resp = retrieve_ac(tenant_id, query, k=5)
     candidates = resp.candidates
 
+    # No evidence: valid evaluation with 0% metrics (do not refuse; eval stores refused=False).
     if not candidates:
-        return _refuse("no_evidence")
+        return AnswerResponse(
+            answer="",
+            claims=[],
+            citations={},
+            debug=None,
+            refused=False,
+            refusal_reason=None,
+        )
 
     top_score = candidates[0].merged_score
     threshold = _min_merged_score()

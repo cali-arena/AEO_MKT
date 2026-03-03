@@ -16,5 +16,5 @@ router = APIRouter()
 @router.post("/answer", response_model=AnswerResponse)
 async def answer(body: AnswerRequest, tenant_id: TenantId) -> AnswerResponse:
     """Generate a grounded answer from retrieval. Tenant from auth only.
-    If no evidence available, returns refused=true with refusal_reason='no_evidence'."""
+    If no evidence available, returns refused=false with empty answer/claims (valid evaluation, 0% metrics)."""
     return answer_service(body.query, tenant_id)

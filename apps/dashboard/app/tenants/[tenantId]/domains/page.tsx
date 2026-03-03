@@ -66,7 +66,15 @@ function jobPath(tenantId: string, jobId: string): string {
 }
 
 async function loadDomains(tenantId: string): Promise<DomainsListResponse> {
-  return apiFetch<DomainsListResponse>(domainsPath(tenantId), { tenantId });
+  const res = await apiFetch<DomainsListResponse>(domainsPath(tenantId), { tenantId });
+  return {
+    ...res,
+    domains: (res.domains ?? []).map((row) => {
+      const raw = String((row as { status?: string }).status ?? "pending").toLowerCase();
+      const status = raw === "done" || raw === "failed" || raw === "running" ? raw : "pending";
+      return { ...row, status };
+    }),
+  };
 }
 
 export default function DomainsPage() {
@@ -569,7 +577,9 @@ export default function DomainsPage() {
                                 : "bg-blue-100 text-blue-800"
                           }`}
                         >
-                          {row.status === "failed"
+                          {(row.status === "running" || (row.status === "pending" && (activeJobId || hasInFlightRows)))
+                            ? "Running..."
+                            : row.status === "failed"
                             ? "Failed"
                             : row.status === "pending"
                               ? "Pending"

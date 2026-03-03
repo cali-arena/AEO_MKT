@@ -23,7 +23,7 @@ def _post_answer(tenant_id: str, query: str = "test query"):
 
 @patch("apps.api.services.answer.retrieve_ac")
 def test_no_evidence_refused(mock_retrieve) -> None:
-    """When /answer has no evidence, response must be refused=true, refusal_reason='no_evidence'."""
+    """When /answer has no evidence, response is valid with refused=false (eval stores 0% metrics, not FAILED)."""
     mock_retrieve.return_value = RetrieveResponse(
         candidates=[],
         debug=RetrieveDebug(
@@ -36,8 +36,10 @@ def test_no_evidence_refused(mock_retrieve) -> None:
     resp = _post_answer("tenant_no_evidence_xyz")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["refused"] is True
-    assert data["refusal_reason"] == "no_evidence"
+    assert data["refused"] is False
+    assert data["refusal_reason"] is None
+    assert data["answer"] == ""
+    assert data["claims"] == []
 
 
 @requires_db

@@ -142,11 +142,11 @@ def _rec_to_eval_result_create(rec: dict[str, Any]) -> dict[str, Any] | None:
     scores = rec.get("scores") or {}
     answer = rec.get("answer") or ""
 
-    # mention_ok: got an answer (not refused)
-    mention_ok = not refused
+    # mention_ok: got a substantive answer (not refused and has claims or non-empty answer)
+    mention_ok = not refused and (bool(claims) or bool((answer or "").strip()))
     # citation_ok: has at least one citation
     citation_ok = bool(citations and len(citations) > 0)
-    # attribution_ok: all claims have evidence_ids and all are in citations
+    # attribution_ok: all claims have evidence_ids and all are in citations; no claims -> False
     total_claims = 0
     supported_claims = 0
     for c in claims:
@@ -156,7 +156,7 @@ def _rec_to_eval_result_create(rec: dict[str, Any]) -> dict[str, Any] | None:
         eids = c.get("evidence_ids") or []
         if eids and all(eid in citations for eid in eids):
             supported_claims += 1
-    attribution_ok = supported_claims == total_claims if total_claims else True
+    attribution_ok = (supported_claims == total_claims) if total_claims else False
     # hallucination_flag: answered but claim with empty evidence_ids or evidence_id not in citations
     hallucination_flag = False
     if mention_ok:
