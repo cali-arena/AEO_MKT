@@ -219,3 +219,12 @@ def get_pending_or_running_job_id_for_domain(tenant_id: str | None, domain: str)
     if row is None:
         return None
     return str(row[0])
+
+
+def clear_domain_eval_jobs_for_tenant(tenant_id: str | None) -> int:
+    """Delete all domain_eval_job rows for the tenant. Returns number of rows deleted."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = text("DELETE FROM domain_eval_job WHERE tenant_id = :tenant_id")
+    with get_db() as session:
+        result = session.execute(stmt, {"tenant_id": tenant_id})
+        return result.rowcount or 0

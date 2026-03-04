@@ -237,3 +237,12 @@ def claim_domain_ingest_job() -> dict[str, Any] | None:
     if row is None:
         return None
     return _row_to_job(row)
+
+
+def clear_domain_ingest_jobs_for_tenant(tenant_id: str) -> int:
+    """Delete all domain_ingest_job rows for the tenant. Returns number of rows deleted."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = text("DELETE FROM domain_ingest_job WHERE tenant_id = :tenant_id")
+    with get_db() as session:
+        result = session.execute(stmt, {"tenant_id": tenant_id})
+        return result.rowcount or 0

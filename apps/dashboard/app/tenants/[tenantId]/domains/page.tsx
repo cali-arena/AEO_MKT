@@ -115,6 +115,7 @@ export default function DomainsPage() {
   const [drawerDomain, setDrawerDomain] = useState<string | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  const [clearHistoryLoading, setClearHistoryLoading] = useState(false);
   const hasInFlightRows = useMemo(
     () =>
       (data?.domains ?? []).some((row) => {
@@ -224,36 +225,10 @@ export default function DomainsPage() {
     };
   }, [tenantId, hasInFlightRows, refresh]);
 
-  const optimisticUpsertDomains = useCallback(
-    (domains: string[]) => {
-      if (!tenantId || domains.length === 0) return;
-      setData((prev) => {
-        const current: DomainsListResponse = prev ?? { tenant_id: tenantId, run_id: null, domains: [] };
-        const map = new Map(current.domains.map((row) => [row.domain, row]));
-        for (const domain of domains) {
-          const existing = map.get(domain);
-          map.set(domain, {
-            domain,
-            status: "running",
-            latest_rates: existing?.latest_rates ?? null,
-            last_run_id: existing?.last_run_id ?? null,
-            last_run_created_at: existing?.last_run_created_at ?? null,
-            failure_reason: null,
-          });
-        }
-        return {
-          ...current,
-          domains: Array.from(map.values()),
-        };
-      });
-    },
-    [tenantId]
-  );
-
   const startEvaluation = useCallback(
-    async (domains: string[] | null, successMessage: string) => {
+    async (domains: string[], successMessage: string) => {
       if (!tenantId) return;
-      const payload = domains ? { domains } : {};
+      const payload = { domains };
       const res = await apiFetch<DomainsEvaluateResponse>(`${domainsPath(tenantId)}/evaluate`, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -265,6 +240,57 @@ export default function DomainsPage() {
     },
     [tenantId, refresh]
   );
+
+  const resetTable = useCallback(() => {
+    if (!tenantId) return;
+    setData(null);
+    setError(null);
+    setLoading(true);
+    loadDomains(tenantId)
+      .then((res) => {
+        setData(res);
+        setError(null);
+      })
+      .catch((err) => {
+        const msg =
+          err instanceof ApiError && err.status === 401
+            ? "Missing auth header. Log in or set Authorization: Bearer tenant:<id>."
+            : err instanceof Error
+              ? err.message
+              : "Failed to load domains";
+        setError(msg);
+      })
+      .finally(() => setLoading(false));
+  }, [tenantId]);
+
+  const adminKey = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_ADMIN_KEY : undefined;
+  const clearHistory = useCallback(async () => {
+    if (!tenantId || !adminKey) return;
+    setClearHistoryLoading(true);
+    setRunMessage(null);
+    try {
+      const res = await apiFetch<{ status: string; message: string; deleted_eval_jobs: number; deleted_ingest_jobs: number }>(
+        `${domainsPath(tenantId)}/clear-history`,
+        {
+          method: "POST",
+          tenantId,
+          headers: { "X-Admin-Key": adminKey },
+        }
+      );
+      setRunMessage({ type: "success", text: res.message ?? "History cleared. Table refreshed." });
+      await refresh();
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.status === 403
+          ? "Admin only: set ADMIN_SECRET on server and NEXT_PUBLIC_ADMIN_KEY in dashboard."
+          : err instanceof Error
+            ? err.message
+            : "Failed to clear history";
+      setRunMessage({ type: "error", text: msg });
+    } finally {
+      setClearHistoryLoading(false);
+    }
+  }, [tenantId, adminKey, refresh]);
 
   const evaluateDomains = useCallback(async () => {
     if (!tenantId) return;
@@ -278,13 +304,13 @@ export default function DomainsPage() {
     }
     setRunLoading(true);
     setRunMessage(null);
-    optimisticUpsertDomains(valid);
     try {
       await apiFetch<DomainsCreateResponse>(domainsPath(tenantId), {
         method: "POST",
         body: JSON.stringify({ domains: valid }),
         tenantId,
       });
+      await refresh();
       await startEvaluation(
         valid,
         `Added ${valid.length} domain(s). Evaluation is running and the table will update automatically.`
@@ -296,7 +322,6 @@ export default function DomainsPage() {
           text: `Added ${valid.length} domain(s). Ignored invalid entries: ${invalid.join(", ")}.`,
         });
       }
-      await refresh();
     } catch (err) {
       setRunMessage({
         type: "error",
@@ -307,19 +332,26 @@ export default function DomainsPage() {
     } finally {
       setRunLoading(false);
     }
-  }, [tenantId, domainInput, optimisticUpsertDomains, refresh, startEvaluation]);
+  }, [tenantId, domainInput, refresh, startEvaluation]);
 
   const runEval = useCallback(
     async (domain: string | null) => {
       if (!tenantId) return;
+      const domainsToEval = domain
+        ? [domain]
+        : (data?.domains ?? []).map((d) => d.domain);
+      if (domainsToEval.length === 0) {
+        setRunMessage({
+          type: "error",
+          text: domain ? "Domain not in list." : "No monitored domains. Add domains first.",
+        });
+        return;
+      }
       setRunLoading(true);
       setRunMessage(null);
-      if (domain) {
-        optimisticUpsertDomains([domain]);
-      }
       try {
         await startEvaluation(
-          domain ? [domain] : null,
+          domainsToEval,
           domain
             ? `Evaluation started for ${domain}.`
             : "Evaluation started for all monitored domains."
@@ -334,16 +366,26 @@ export default function DomainsPage() {
         setRunLoading(false);
       }
     },
-    [tenantId, optimisticUpsertDomains, refresh, startEvaluation]
+    [tenantId, data?.domains, refresh, startEvaluation]
   );
 
   const domainsSorted = useMemo(() => {
     const rows = [...(data?.domains ?? [])];
+    const metricKeys: (keyof EvalMetricsRates)[] = [
+      "mention_rate",
+      "citation_rate",
+      "attribution_rate",
+      "hallucination_rate",
+    ];
     return rows.sort((a, b) => {
       let cmp = 0;
       if (sortKey === "domain") {
         cmp = a.domain.localeCompare(b.domain);
-      } else {
+      } else if (sortKey === "status" || sortKey === "actions") {
+        const sa = (a.ui_status ?? a.status ?? "").toString();
+        const sb = (b.ui_status ?? b.status ?? "").toString();
+        cmp = sa.localeCompare(sb);
+      } else if (metricKeys.includes(sortKey)) {
         const left = a.latest_rates?.[sortKey] ?? -1;
         const right = b.latest_rates?.[sortKey] ?? -1;
         cmp = left - right;
@@ -453,8 +495,8 @@ export default function DomainsPage() {
       <div id="add-domains-section" className="mb-4 card rounded-xl border-gray-200 bg-gray-50/80 p-4">
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
         <p className="mb-3 text-xs text-gray-500">
-          Paste one or more domains (newline/comma/semicolon). New rows appear immediately as running and update
-          automatically when evaluation completes.
+          Paste one or more domains (newline/comma/semicolon). Domains are created on the server; the table refetches
+          and then evaluation runs. No local list—always from server.
         </p>
         <div className="flex flex-col gap-2">
           <textarea
@@ -511,6 +553,26 @@ export default function DomainsPage() {
           >
             Refresh table
           </button>
+          <button
+            type="button"
+            onClick={() => resetTable()}
+            disabled={loading}
+            className="shrink-0 rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+            title="Clear client cache and refetch domains from server"
+          >
+            Reset table
+          </button>
+          {adminKey && (
+            <button
+              type="button"
+              onClick={() => clearHistory()}
+              disabled={clearHistoryLoading || loading}
+              className="shrink-0 rounded-md border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-medium text-rose-800 hover:bg-rose-100 disabled:opacity-50"
+              title="Admin only: delete all domain eval and ingest job rows for this tenant"
+            >
+              {clearHistoryLoading ? "Clearing..." : "Clear history"}
+            </button>
+          )}
         </div>
       </div>
 

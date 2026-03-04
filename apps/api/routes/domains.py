@@ -3,17 +3,22 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Literal
 from urllib.parse import unquote
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from apps.api.schemas.eval import EvalMetricsRates
 from apps.api.services.domain_index_state import ensure_ingested
-from apps.api.services.domain_ingest_jobs import get_domain_ingest_job, get_latest_ingest_job_statuses_for_tenant
-from apps.api.services.domain_jobs import get_domain_eval_job
+from apps.api.services.domain_ingest_jobs import (
+    clear_domain_ingest_jobs_for_tenant,
+    get_domain_ingest_job,
+    get_latest_ingest_job_statuses_for_tenant,
+)
+from apps.api.services.domain_jobs import clear_domain_eval_jobs_for_tenant, get_domain_eval_job
 from apps.api.services.domain_status import get_domains_with_status
 from apps.api.services.domain_orchestration_jobs import (
     enqueue_domain_eval_orchestration_job,
@@ -137,6 +142,13 @@ class JobStatusResponse(BaseModel):
     error_code: str | None = None
     started_at: str
     finished_at: str | None = None
+
+
+class DomainsClearHistoryResponse(BaseModel):
+    status: str
+    message: str
+    deleted_eval_jobs: int
+    deleted_ingest_jobs: int
 
 
 def _enforce_tenant_match(path_tenant_id: str, auth_tenant_id: str) -> str:
@@ -340,6 +352,41 @@ async def create_domains(
         else:
             existing.append(domain)
     return DomainsCreateResponse(status="ok", created=created, existing=existing)
+
+
+@router.post("/tenants/{tenant_id}/domains/clear-history", response_model=DomainsClearHistoryResponse)
+async def clear_domains_history(
+    request: Request,
+    tenant_id: str,
+    auth_tenant_id: TenantId,
+) -> DomainsClearHistoryResponse:
+    """Admin-only: delete all domain_eval_job and domain_ingest_job rows for this tenant.
+    Requires X-Admin-Key header to match ADMIN_SECRET env. After success, client should refetch domains list."""
+    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    admin_secret = os.environ.get("ADMIN_SECRET")
+    if not admin_secret:
+        raise HTTPException(
+            status_code=403,
+            detail="Admin clear-history is disabled (ADMIN_SECRET not set)",
+        )
+    key = (request.headers.get("X-Admin-Key") or "").strip()
+    if key != admin_secret:
+        raise HTTPException(status_code=403, detail="Forbidden: admin key required")
+
+    deleted_ingest = clear_domain_ingest_jobs_for_tenant(tenant)
+    deleted_eval = clear_domain_eval_jobs_for_tenant(tenant)
+    logger.info(
+        "domains_clear_history tenant_id=%s deleted_eval_jobs=%s deleted_ingest_jobs=%s",
+        tenant,
+        deleted_eval,
+        deleted_ingest,
+    )
+    return DomainsClearHistoryResponse(
+        status="ok",
+        message=f"Cleared job history: {deleted_eval} eval job(s) and {deleted_ingest} ingest job(s) removed.",
+        deleted_eval_jobs=deleted_eval,
+        deleted_ingest_jobs=deleted_ingest,
+    )
 
 
 @router.post("/tenants/{tenant_id}/domains/evaluate", response_model=DomainsEvaluateResponse, status_code=202)

@@ -350,9 +350,10 @@ def get_entity_ids_for_sections(tenant_id: str | None, section_ids: Sequence[str
         select(Entity.entity_id)
         .select_from(Entity)
         .where(tenant_where(Entity, tenant_id), Entity.section_id.in_(section_ids))
+        .distinct()
     )
     with get_db() as session:
-        rows = session.scalars(stmt.distinct()).all()
+        rows = session.scalars(stmt).all()
         return list(rows)
 
 
