@@ -352,7 +352,8 @@ def get_entity_ids_for_sections(tenant_id: str | None, section_ids: Sequence[str
         .where(tenant_where(Entity, tenant_id), Entity.section_id.in_(section_ids))
     )
     with get_db() as session:
-        return list(session.scalars(stmt).distinct().all())
+        rows = session.scalars(stmt.distinct()).all()
+        return list(rows)
 
 
 def get_domain_index_state(tenant_id: str | None, domain: str) -> dict[str, Any] | None:

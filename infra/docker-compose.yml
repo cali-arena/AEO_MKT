@@ -8,8 +8,11 @@ networks:
     driver: bridge
 
 services:
+  # REQUIRED: pgvector image. Do NOT use "postgres:16" — it has no pgvector binaries;
+  # ac_embeddings / ec_embeddings will stay 0 and you'll see "$libdir/vector" errors.
+  # Tag must match Postgres major version: pg15, pg16, pg17, pg18.
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     networks:
       - ai-mkt
