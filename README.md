@@ -141,6 +141,14 @@ docker compose -f infra/docker-compose.yml --env-file .env up -d --build
 
 Using the script or always passing `--env-file .env` avoids the `POSTGRES_PASSWORD` warning and keeps the database and API in sync.
 
+**Rebuilding after code changes** (e.g. API or worker code fix): so containers run the new code, rebuild and recreate:
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env up -d --build api worker
+```
+
+Or full stack: `docker compose -f infra/docker-compose.yml --env-file .env up -d --build`. On a VM after `git pull`, run the same command so the API and worker images are rebuilt and restarted.
+
 **If you see `password authentication failed for user "postgres"`:** Run the one-time steps in 4.3 (`down -v` then `up` with `--env-file .env`).
 
 ### 4.4 Run migrations
