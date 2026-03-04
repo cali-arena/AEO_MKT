@@ -1207,6 +1207,24 @@ def insert_eval_results_bulk(
         return len(objs)
 
 
+# Regex pattern for eval_domain cleanup: quote., app., secure., form. subdomains (PostgreSQL)
+EVAL_DOMAIN_INVALID_PREFIX_PATTERN = "^(quote|app|secure|form)\\."
+
+
+def delete_invalid_eval_domains(tenant_id: str | None) -> int:
+    """Remove from eval_domain any domain matching quote./app./secure./form. prefix. Returns count deleted."""
+    tenant_id = require_tenant_id(tenant_id)
+    stmt = text(
+        "DELETE FROM eval_domain WHERE tenant_id = :tenant_id AND domain ~ :pattern"
+    )
+    with get_db() as session:
+        result = session.execute(
+            stmt,
+            {"tenant_id": tenant_id, "pattern": EVAL_DOMAIN_INVALID_PREFIX_PATTERN},
+        )
+        return result.rowcount or 0
+
+
 def add_eval_domain(tenant_id: str | None, domain: str) -> bool:
     """Add a domain for this tenant to be evaluated 24/7. Returns True if added, False if already exists."""
     tenant_id = require_tenant_id(tenant_id)
@@ -1230,6 +1248,68 @@ def list_eval_domains(tenant_id: str | None) -> list[str]:
     stmt = select(EvalDomain.domain).where(tenant_where(EvalDomain, tenant_id)).order_by(EvalDomain.domain)
     with get_db() as session:
         return list(session.scalars(stmt).all())
+
+
+def delete_domain_data(tenant_id: str | None, domain: str) -> None:
+    """Delete all rows for this tenant+domain in dependency order. Uses one transaction; rollback on any failure."""
+    tenant_id = require_tenant_id(tenant_id)
+    domain = (domain or "").strip().lower()
+    if not domain:
+        raise ValueError("domain is required")
+    with get_db() as session:
+        # Relations reference evidence; delete first
+        session.execute(
+            text(
+                "DELETE FROM relations WHERE tenant_id = :tid AND evidence_id IN "
+                "(SELECT evidence_id FROM evidence WHERE tenant_id = :tid AND domain = :domain)"
+            ),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(text("DELETE FROM evidence WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM ac_embeddings WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM ec_embeddings WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(
+            text(
+                "DELETE FROM entity_mentions WHERE tenant_id = :tid AND section_id IN "
+                "(SELECT section_id FROM sections WHERE tenant_id = :tid AND domain = :domain)"
+            ),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(
+            text(
+                "DELETE FROM entities WHERE tenant_id = :tid AND section_id IN "
+                "(SELECT section_id FROM sections WHERE tenant_id = :tid AND domain = :domain)"
+            ),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(text("DELETE FROM sections WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM raw_page WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM eval_result WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(
+            text("DELETE FROM domain_ingest_job WHERE tenant_id = :tid AND domain = :domain"),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(
+            text("DELETE FROM domain_eval_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(
+            text(
+                "DELETE FROM domain_orchestrate_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"
+            ),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(
+            text(
+                "DELETE FROM domain_eval_orchestration_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"
+            ),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(
+            text("DELETE FROM domain_index_state WHERE tenant_id = :tid AND domain = :domain"),
+            {"tid": tenant_id, "domain": domain},
+        )
+        session.execute(text("DELETE FROM eval_domain WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
 
 
 def get_latest_eval_run(tenant_id: str | None) -> EvalRun | None:

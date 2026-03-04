@@ -60,6 +60,23 @@ function normalizeDomain(raw: string): string | null {
   return candidate;
 }
 
+const BLOCKED_PREFIXES = ["quote.", "app.", "secure.", "form."];
+
+function isBlockedDomain(domain: string): boolean {
+  const d = domain.trim().toLowerCase();
+  return BLOCKED_PREFIXES.some((prefix) => d.startsWith(prefix));
+}
+
+function filterBlockedDomains(domains: string[]): { allowed: string[]; blocked: string[] } {
+  const allowed: string[] = [];
+  const blocked: string[] = [];
+  for (const d of domains) {
+    if (isBlockedDomain(d)) blocked.push(d);
+    else allowed.push(d);
+  }
+  return { allowed, blocked };
+}
+
 function parseDomains(input: string): { valid: string[]; invalid: string[] } {
   const seen = new Set<string>();
   const valid: string[] = [];
@@ -116,6 +133,9 @@ export default function DomainsPage() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   const [clearHistoryLoading, setClearHistoryLoading] = useState(false);
+  const [deleteConfirmDomain, setDeleteConfirmDomain] = useState<string | null>(null);
+  const [deletingDomain, setDeletingDomain] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const hasInFlightRows = useMemo(
     () =>
       (data?.domains ?? []).some((row) => {
@@ -243,10 +263,15 @@ export default function DomainsPage() {
 
   const resetTable = useCallback(() => {
     if (!tenantId) return;
+    setRunMessage(null);
     setData(null);
     setError(null);
     setLoading(true);
-    loadDomains(tenantId)
+    apiFetch<{ status: string; removed: number; message: string }>(
+      `${domainsPath(tenantId)}?invalid_only=true`,
+      { method: "DELETE", tenantId }
+    )
+      .then(() => loadDomains(tenantId))
       .then((res) => {
         setData(res);
         setError(null);
@@ -292,6 +317,39 @@ export default function DomainsPage() {
     }
   }, [tenantId, adminKey, refresh]);
 
+  const showToast = useCallback((type: "success" | "error", text: string) => {
+    setToast({ type, text });
+    const t = window.setTimeout(() => setToast(null), 4000);
+    return () => window.clearTimeout(t);
+  }, []);
+
+  const deleteDomain = useCallback(
+    async (domain: string) => {
+      if (!tenantId) return;
+      setDeletingDomain(domain);
+      setDeleteConfirmDomain(null);
+      try {
+        await apiFetch<{ ok: boolean; deleted_domain: string }>(
+          `${domainsPath(tenantId)}/${encodeURIComponent(domain)}`,
+          { method: "DELETE", tenantId }
+        );
+        showToast("success", "Domain removed");
+        await refresh();
+      } catch (err) {
+        const msg =
+          err instanceof ApiError && err.body && typeof err.body === "object" && "detail" in err.body
+            ? String((err.body as { detail: unknown }).detail)
+            : err instanceof Error
+              ? err.message
+              : "Failed to delete domain";
+        showToast("error", msg);
+      } finally {
+        setDeletingDomain(null);
+      }
+    },
+    [tenantId, refresh, showToast]
+  );
+
   const evaluateDomains = useCallback(async () => {
     if (!tenantId) return;
     const { valid, invalid } = parseDomains(domainInput);
@@ -302,24 +360,40 @@ export default function DomainsPage() {
       });
       return;
     }
+    const { allowed, blocked } = filterBlockedDomains(valid);
+    if (allowed.length === 0) {
+      setRunMessage({
+        type: "error",
+        text:
+          blocked.length > 0
+            ? "Quote or form subdomains cannot be evaluated. Please use the main domain."
+            : "Enter at least one domain",
+      });
+      return;
+    }
     setRunLoading(true);
     setRunMessage(null);
     try {
       await apiFetch<DomainsCreateResponse>(domainsPath(tenantId), {
         method: "POST",
-        body: JSON.stringify({ domains: valid }),
+        body: JSON.stringify({ domains: allowed }),
         tenantId,
       });
       await refresh();
       await startEvaluation(
-        valid,
-        `Added ${valid.length} domain(s). Evaluation is running and the table will update automatically.`
+        allowed,
+        `Added ${allowed.length} domain(s). Evaluation is running and the table will update automatically.`
       );
       setDomainInput("");
       if (invalid.length > 0) {
         setRunMessage({
           type: "success",
-          text: `Added ${valid.length} domain(s). Ignored invalid entries: ${invalid.join(", ")}.`,
+          text: `Added ${allowed.length} domain(s). Ignored invalid entries: ${invalid.join(", ")}.`,
+        });
+      } else if (blocked.length > 0) {
+        setRunMessage({
+          type: "success",
+          text: `Added ${allowed.length} domain(s). Quote/form subdomains were skipped—use the main domain.`,
         });
       }
     } catch (err) {
@@ -496,7 +570,7 @@ export default function DomainsPage() {
         <p className="mb-2 text-sm font-medium text-gray-700">Add domain(s) to evaluate</p>
         <p className="mb-3 text-xs text-gray-500">
           Paste one or more domains (newline/comma/semicolon). Domains are created on the server; the table refetches
-          and then evaluation runs. No local list—always from server.
+          and then evaluation runs. Quote/form subdomains (quote., app., secure., form.) cannot be evaluated—use the main domain.
         </p>
         <div className="flex flex-col gap-2">
           <textarea
@@ -718,16 +792,26 @@ export default function DomainsPage() {
                     </>
                   )}
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
-                    {showRetry && (
+                    <div className="flex flex-wrap items-center gap-1">
+                      {showRetry && (
+                        <button
+                          type="button"
+                          onClick={() => runEval(row.domain)}
+                          disabled={runLoading}
+                          className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        >
+                          Retry
+                        </button>
+                      )}
                       <button
                         type="button"
-                        onClick={() => runEval(row.domain)}
-                        disabled={runLoading}
-                        className="rounded-md border border-rose-300 bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                        onClick={() => setDeleteConfirmDomain(row.domain)}
+                        disabled={deletingDomain !== null}
+                        className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                       >
-                        Retry
+                        {deletingDomain === row.domain ? "Deleting..." : "Delete"}
                       </button>
-                    )}
+                    </div>
                   </td>
                 </motion.tr>
               );
@@ -742,6 +826,45 @@ export default function DomainsPage() {
         basePath={basePath}
         onClose={() => setDrawerDomain(null)}
       />
+
+      {deleteConfirmDomain && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="delete-domain-title">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-4 shadow-xl">
+            <h2 id="delete-domain-title" className="text-lg font-semibold text-gray-900">Remove domain?</h2>
+            <p className="mt-2 text-sm text-gray-600">
+              This will remove the domain and its indexed data. You can add it again later.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmDomain(null)}
+                className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteDomain(deleteConfirmDomain)}
+                disabled={deletingDomain !== null}
+                className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 rounded-lg px-4 py-2 text-sm font-medium shadow-lg ${
+            toast.type === "success" ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+          }`}
+          role="status"
+        >
+          {toast.text}
+        </div>
+      )}
     </div>
   );
 }

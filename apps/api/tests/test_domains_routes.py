@@ -81,7 +81,9 @@ def test_create_domains_normalizes_and_returns_created_existing() -> None:
     def _add(_tenant: str, domain: str) -> bool:
         return domain != "exists.com"
 
-    with patch("apps.api.routes.domains.add_eval_domain", side_effect=_add):
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
+        "apps.api.routes.domains.add_eval_domain", side_effect=_add
+    ):
         res = client.post(
             f"/tenants/{tenant}/domains",
             headers=_auth(tenant),
@@ -93,11 +95,38 @@ def test_create_domains_normalizes_and_returns_created_existing() -> None:
     assert body["existing"] == ["exists.com"]
 
 
+def test_create_domains_rejects_quote_form_subdomains() -> None:
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0):
+        res = client.post(
+            f"/tenants/{tenant}/domains",
+            headers=_auth(tenant),
+            json={"domains": ["quote.unitedglobalvanline.com"]},
+        )
+    assert res.status_code == 400
+    assert "Unsupported domain type" in res.json()["detail"]
+    assert "form/quote" in res.json()["detail"].lower()
+
+
+def test_evaluate_domains_rejects_quote_form_subdomains() -> None:
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0):
+        res = client.post(
+            f"/tenants/{tenant}/domains/evaluate",
+            headers=_auth(tenant),
+            json={"domains": ["quote.example.com", "main.com"]},
+        )
+    assert res.status_code == 400
+    assert "Unsupported domain type" in res.json()["detail"]
+
+
 def test_evaluate_domains_all_done_returns_orchestration_job_and_domains_state() -> None:
     """All domains DONE => enqueue orchestration job only; return orchestration_job_id and per-domain state."""
     tenant = f"tenant-{uuid.uuid4().hex[:8]}"
     orch_id = "9f3021a6-8e6c-454a-95e2-a9dbcc8358dd"
-    with patch("apps.api.routes.domains.add_eval_domain", return_value=True), patch(
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
+        "apps.api.routes.domains.add_eval_domain", return_value=True
+    ), patch(
         "apps.api.routes.domains.ensure_ingested",
         return_value={
             "status": "DONE",
@@ -149,7 +178,9 @@ def test_evaluate_domains_indexing_queued_returns_orchestration_and_domains_stat
     tenant = f"tenant-{uuid.uuid4().hex[:8]}"
     ingest_job_id = "ingest-111-222"
     orch_id = "orch-456"
-    with patch("apps.api.routes.domains.add_eval_domain", return_value=True), patch(
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
+        "apps.api.routes.domains.add_eval_domain", return_value=True
+    ), patch(
         "apps.api.routes.domains.ensure_ingested",
         return_value={
             "status": "PENDING",
@@ -200,7 +231,9 @@ def test_evaluate_enqueues_orchestration_per_request_same_ingest_in_domains_stat
         orch_call[0] += 1
         return {"id": orch_ids[idx], "tenant_id": tenant_id, "domains": domains, "status": "PENDING"}
 
-    with patch("apps.api.routes.domains.add_eval_domain", return_value=True), patch(
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
+        "apps.api.routes.domains.add_eval_domain", return_value=True
+    ), patch(
         "apps.api.routes.domains.ensure_ingested",
         side_effect=_ensure,
     ), patch("apps.api.routes.domains.enqueue_domain_eval_orchestration_job", side_effect=_enqueue_orch):
@@ -243,7 +276,9 @@ def test_bulk_evaluate_enqueues_one_orchestration_ensure_ingested_per_domain() -
         orch_calls.append({"tenant_id": tenant_id, "domains": list(domains_list), "desired": desired_hashes_per_domain})
         return {"id": "orch-1", "tenant_id": tenant_id, "domains": domains_list, "status": "PENDING"}
 
-    with patch("apps.api.routes.domains.add_eval_domain", return_value=True), patch(
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
+        "apps.api.routes.domains.add_eval_domain", return_value=True
+    ), patch(
         "apps.api.routes.domains.ensure_ingested",
         side_effect=_ensure,
     ), patch(
@@ -261,3 +296,37 @@ def test_bulk_evaluate_enqueues_one_orchestration_ensure_ingested_per_domain() -
     assert len(orch_calls) == 1
     assert orch_calls[0]["domains"] == ["a.com", "b.com"]
     assert set(orch_calls[0]["desired"]) == {"a.com", "b.com"}
+
+
+def test_delete_domains_invalid_only_removes_blocked_subdomains() -> None:
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=2):
+        res = client.delete(
+            f"/tenants/{tenant}/domains?invalid_only=true",
+            headers=_auth(tenant),
+        )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["status"] == "ok"
+    assert body["removed"] == 2
+
+
+def test_delete_domains_without_invalid_only_returns_400() -> None:
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    res = client.delete(f"/tenants/{tenant}/domains", headers=_auth(tenant))
+    assert res.status_code == 400
+    assert "invalid_only" in res.json()["detail"].lower()
+
+
+def test_delete_domain_removes_domain_and_returns_ok() -> None:
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    domain = "example.com"
+    with patch("apps.api.routes.domains.delete_domain_data"):
+        res = client.delete(
+            f"/tenants/{tenant}/domains/{domain}",
+            headers=_auth(tenant),
+        )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["deleted_domain"] == domain

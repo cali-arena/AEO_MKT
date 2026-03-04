@@ -26,6 +26,8 @@ from apps.api.services.domain_orchestration_jobs import (
 )
 from apps.api.services.repo import (
     add_eval_domain,
+    delete_domain_data,
+    delete_invalid_eval_domains,
     get_domain_aggregates_from_eval_result,
     get_latest_eval_run,
     list_eval_domains,
@@ -34,6 +36,26 @@ from apps.api.services.tenant_context import TenantId
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+BLOCKED_DOMAIN_PREFIXES = ("quote.", "app.", "secure.", "form.")
+
+
+def _is_blocked_domain(domain: str) -> bool:
+    """True if domain starts with a blocked prefix (quote/app/secure/form subdomains)."""
+    d = (domain or "").strip().lower()
+    return any(d.startswith(p) for p in BLOCKED_DOMAIN_PREFIXES)
+
+
+def _reject_blocked_domains(normalized: list[str]) -> None:
+    """Raise HTTP 400 if any domain is blocked; log each rejected domain."""
+    for domain in normalized:
+        if _is_blocked_domain(domain):
+            logger.warning("Rejected unsupported domain: %s", domain)
+            raise HTTPException(
+                status_code=400,
+                detail="Unsupported domain type (form/quote subdomains are not allowed)",
+            )
+
 
 _DOMAIN_REGEX = re.compile(
     r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$",
@@ -151,6 +173,17 @@ class DomainsClearHistoryResponse(BaseModel):
     deleted_ingest_jobs: int
 
 
+class DomainsDeleteInvalidResponse(BaseModel):
+    status: str
+    removed: int
+    message: str
+
+
+class DomainDeletedResponse(BaseModel):
+    ok: bool
+    deleted_domain: str
+
+
 def _enforce_tenant_match(path_tenant_id: str, auth_tenant_id: str) -> str:
     decoded = unquote(path_tenant_id or "").strip()
     if not decoded:
@@ -225,6 +258,58 @@ def _ui_status_to_display_status(ui_status: str | None) -> Literal["pending", "r
     if u in ("INDEXING", "EVALUATING"):
         return "running"
     return "pending"
+
+
+@router.delete(
+    "/tenants/{tenant_id}/domains/{domain:path}",
+    response_model=DomainDeletedResponse,
+)
+async def delete_domain(
+    tenant_id: str,
+    domain: str,
+    auth_tenant_id: TenantId,
+) -> DomainDeletedResponse:
+    """Remove a domain from the monitored list and delete all related DB rows (eval_domain, domain_index_state, raw_page, jobs, sections, embeddings, evidence)."""
+    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    try:
+        domain_normalized = _normalize_domain(domain)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    try:
+        delete_domain_data(tenant, domain_normalized)
+    except Exception as e:
+        logger.exception("delete_domain failed tenant_id=%s domain=%s: %s", tenant, domain_normalized, e)
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete domain and related data",
+        )
+    logger.info("domain_deleted tenant_id=%s domain=%s", tenant, domain_normalized)
+    return DomainDeletedResponse(ok=True, deleted_domain=domain_normalized)
+
+
+@router.delete(
+    "/tenants/{tenant_id}/domains",
+    response_model=DomainsDeleteInvalidResponse,
+)
+async def delete_invalid_domains(
+    tenant_id: str,
+    auth_tenant_id: TenantId,
+    invalid_only: bool = False,
+) -> DomainsDeleteInvalidResponse:
+    """Remove invalid domains (quote./app./secure./form.) from eval_domain. Requires invalid_only=true."""
+    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    if not invalid_only:
+        raise HTTPException(
+            status_code=400,
+            detail="Only invalid_only=true is supported; removes quote/app/secure/form subdomains.",
+        )
+    removed = delete_invalid_eval_domains(tenant)
+    logger.info("domains_delete_invalid tenant_id=%s removed=%s", tenant, removed)
+    return DomainsDeleteInvalidResponse(
+        status="ok",
+        removed=removed,
+        message=f"Removed {removed} invalid domain(s) from monitored list." if removed else "No invalid domains to remove.",
+    )
 
 
 @router.get("/tenants/{tenant_id}/domains", response_model=DomainsListResponse)
@@ -344,6 +429,8 @@ async def create_domains(
         raise HTTPException(status_code=400, detail=f"Invalid domain(s): {', '.join(invalid)}")
     if not normalized:
         raise HTTPException(status_code=400, detail="No valid domains provided")
+    _reject_blocked_domains(normalized)
+    delete_invalid_eval_domains(tenant)
     created: list[str] = []
     existing: list[str] = []
     for domain in normalized:
@@ -396,6 +483,7 @@ async def evaluate_domains(
     auth_tenant_id: TenantId,
 ) -> DomainsEvaluateResponse:
     tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    delete_invalid_eval_domains(tenant)
     raw_domains = body.domains if body and body.domains is not None else None
     normalized: list[str] = []
     if raw_domains is not None:
@@ -404,6 +492,7 @@ async def evaluate_domains(
             raise HTTPException(status_code=400, detail=f"Invalid domain(s): {', '.join(invalid)}")
         if not normalized:
             raise HTTPException(status_code=400, detail="No valid domains provided")
+        _reject_blocked_domains(normalized)
         for domain in normalized:
             add_eval_domain(tenant, domain)
     else:
