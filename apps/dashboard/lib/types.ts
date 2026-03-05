@@ -91,6 +91,7 @@ export interface EvalMetricsLatestOut {
 }
 
 export type UiStatus = "UNINDEXED" | "INDEXING" | "EVALUATING" | "DONE" | "FAILED";
+export type ResolvedDomainStatus = "PENDING" | "EVALUATING" | "DONE" | "FAILED";
 
 export interface DomainListItem {
   domain: string;
@@ -114,6 +115,12 @@ export interface DomainListItem {
   orchestration_status?: string | null;
   /** Single source of truth for badge: UNINDEXED | INDEXING | EVALUATING | DONE | FAILED */
   ui_status?: UiStatus | null;
+  /** Optional fields for UI status resolver (when API aggregation is job-based) */
+  eval_result_count?: number;
+  last_result_at?: string | null;
+  running_count?: number;
+  failed_count?: number;
+  done_count?: number;
 }
 
 export interface DomainsListResponse {

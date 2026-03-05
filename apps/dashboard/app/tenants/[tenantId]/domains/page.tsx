@@ -15,9 +15,37 @@ import type {
   DomainsEvaluateResponse,
   DomainsListResponse,
   EvalMetricsRates,
+  ResolvedDomainStatus,
 } from "@/lib/types";
 
 type SortKey = keyof EvalMetricsRates | "domain" | "status" | "actions";
+
+/**
+ * Resolve display status from API row. Prefers result-based signals so domains with
+ * eval results show DONE even when job-level aggregation still says EVALUATING.
+ */
+function resolveDomainStatus(row: DomainListItem): ResolvedDomainStatus {
+  const hasResults =
+    (row.total_results ?? 0) > 0 ||
+    (row.eval_result_count ?? 0) > 0 ||
+    !!row.last_run_created_at ||
+    !!row.last_result_at;
+  if (hasResults) return "DONE";
+  if (
+    !!row.last_error ||
+    !!row.failure_reason ||
+    (row.failed_count ?? 0) > 0
+  )
+    return "FAILED";
+  if (
+    row.status === "running" ||
+    row.ui_status === "EVALUATING" ||
+    row.ui_status === "INDEXING" ||
+    (row.running_count ?? 0) > 0
+  )
+    return "EVALUATING";
+  return "PENDING";
+}
 
 function statusBadgeClass(uiStatus: string | null | undefined): string {
   if (!uiStatus) return "bg-gray-100 text-gray-700";
@@ -136,11 +164,12 @@ export default function DomainsPage() {
   const [deleteConfirmDomain, setDeleteConfirmDomain] = useState<string | null>(null);
   const [deletingDomain, setDeletingDomain] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
   const hasInFlightRows = useMemo(
     () =>
       (data?.domains ?? []).some((row) => {
-        const u = row.ui_status;
-        return u && u !== "DONE" && u !== "FAILED";
+        const resolved = resolveDomainStatus(row);
+        return resolved !== "DONE" && resolved !== "FAILED";
       }),
     [data?.domains]
   );
@@ -151,6 +180,7 @@ export default function DomainsPage() {
       .then((res) => {
         setData(res);
         setError(null);
+        setLastFetchedAt(Date.now());
       })
       .catch((err) => {
         const msg =
@@ -170,7 +200,10 @@ export default function DomainsPage() {
     setError(null);
     loadDomains(tenantId)
       .then((res) => {
-        if (!cancelled) setData(res);
+        if (!cancelled) {
+          setData(res);
+          setLastFetchedAt(Date.now());
+        }
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load domains");
@@ -275,6 +308,7 @@ export default function DomainsPage() {
       .then((res) => {
         setData(res);
         setError(null);
+        setLastFetchedAt(Date.now());
       })
       .catch((err) => {
         const msg =
@@ -456,8 +490,8 @@ export default function DomainsPage() {
       if (sortKey === "domain") {
         cmp = a.domain.localeCompare(b.domain);
       } else if (sortKey === "status" || sortKey === "actions") {
-        const sa = (a.ui_status ?? a.status ?? "").toString();
-        const sb = (b.ui_status ?? b.status ?? "").toString();
+        const sa = resolveDomainStatus(a);
+        const sb = resolveDomainStatus(b);
         cmp = sa.localeCompare(sb);
       } else if (metricKeys.includes(sortKey)) {
         const left = a.latest_rates?.[sortKey] ?? -1;
@@ -610,6 +644,11 @@ export default function DomainsPage() {
           <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700">
             {domainsSorted.length} domain{domainsSorted.length !== 1 ? "s" : ""} monitored
           </span>
+          {lastFetchedAt != null && (
+            <span className="text-xs text-gray-400" title="Table data last refreshed">
+              Last updated {new Date(lastFetchedAt).toLocaleTimeString()}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -690,9 +729,9 @@ export default function DomainsPage() {
             )}
             {domainsSorted.map((row) => {
               const rates = row.latest_rates;
-              const isCompleted = row.status === "done";
-              const uiStatus = row.ui_status ?? null;
-              const isIndexFailed = uiStatus === "FAILED" || (row.index_status ?? "").toUpperCase() === "FAILED";
+              const resolvedStatus = resolveDomainStatus(row);
+              const isCompleted = resolvedStatus === "DONE";
+              const isIndexFailed = resolvedStatus === "FAILED" || (row.index_status ?? "").toUpperCase() === "FAILED";
               const isEvalFailed = row.status === "failed";
               const showRetry = isIndexFailed || isEvalFailed;
               const tooltip = statusDetailsTooltip(row);
@@ -715,9 +754,9 @@ export default function DomainsPage() {
                   <td className="px-3 py-2" title={tooltip || undefined}>
                     <div className="flex flex-col gap-0.5">
                       <span
-                        className={`inline-flex w-fit rounded-md px-2 py-0.5 text-xs font-medium ${statusBadgeClass(uiStatus ?? undefined)}`}
+                        className={`inline-flex w-fit rounded-md px-2 py-0.5 text-xs font-medium ${statusBadgeClass(resolvedStatus)}`}
                       >
-                        {uiStatus ?? "—"}
+                        {resolvedStatus}
                       </span>
                       {(row.index_status || row.last_indexed_at) && (
                         <span className="text-xs text-gray-500">
@@ -770,20 +809,18 @@ export default function DomainsPage() {
                       <td className="px-3 py-2">
                         <span
                           className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${
-                            row.status === "failed"
+                            resolvedStatus === "FAILED"
                               ? "bg-rose-100 text-rose-800"
-                              : row.status === "pending"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-blue-100 text-blue-800"
+                              : resolvedStatus === "EVALUATING"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-amber-100 text-amber-800"
                           }`}
                         >
-                          {(row.status === "running" || (row.status === "pending" && (activeJobId || hasInFlightRows)))
-                            ? "Running..."
-                            : row.status === "failed"
-                              ? "Failed"
-                              : row.status === "pending"
-                                ? "Pending"
-                                : "Running..."}
+                          {resolvedStatus === "FAILED"
+                            ? "Failed"
+                            : resolvedStatus === "EVALUATING"
+                              ? "Running..."
+                              : "Pending"}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-500">-</td>
