@@ -171,6 +171,7 @@ def run_day1_pipeline(
 
     # 6) Infer page_type, ingest
     page_type = infer_page_type(final_url, title=title, text=normalized)
+    policy = load_policy()
     policy_ver = get_crawl_policy_version(policy)
 
     write_crawl_record(
