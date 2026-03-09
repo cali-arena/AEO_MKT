@@ -18,7 +18,11 @@ from apps.api.services.domain_ingest_jobs import (
     get_domain_ingest_job,
     get_latest_ingest_job_statuses_for_tenant,
 )
-from apps.api.services.domain_jobs import clear_domain_eval_jobs_for_tenant, get_domain_eval_job
+from apps.api.services.domain_jobs import (
+    clear_domain_eval_jobs_for_tenant,
+    enqueue_domain_eval_job,
+    get_domain_eval_job,
+)
 from apps.api.services.domain_status import get_domains_with_status
 from apps.api.services.domain_orchestration_jobs import (
     enqueue_domain_eval_orchestration_job,
@@ -517,7 +521,7 @@ async def evaluate_domains(
     else:
         normalized = list_eval_domains(tenant)
 
-    # Ensure ingested per domain (no eval enqueue here); enqueue one orchestration job
+    # Ensure ingested per domain; when all indexed create domain_eval_job immediately, else enqueue orchestration
     desired_hashes: list[DesiredHashesRow] = []
     desired_hashes_per_domain: dict[str, dict[str, str]] = {}
     domains_state: list[DomainEvaluateStateRow] = []
@@ -554,6 +558,34 @@ async def evaluate_domains(
             domains_state.append(
                 DomainEvaluateStateRow(domain=domain, state="UNINDEXED", ingest_job_id=str(ingest_job_id) if ingest_job_id else None)
             )
+
+    if all_done and normalized:
+        # All domains indexed: create real domain_eval_job row so worker can run eval; return its id
+        eval_job = enqueue_domain_eval_job(tenant, normalized)
+        eval_job_id = str(eval_job["id"])
+        job_id = eval_job_id
+        status_url = f"/tenants/{tenant}/jobs/{eval_job_id}"
+        logger.info(
+            "domains_evaluate_eval_job_created tenant_id=%s eval_job_id=%s domain_count=%s domains=%s",
+            tenant,
+            eval_job_id,
+            len(normalized),
+            normalized,
+        )
+        return DomainsEvaluateResponse(
+            status="started",
+            message="Evaluation job created; worker will run evaluation shortly.",
+            job_id=job_id,
+            status_url=status_url,
+            run_id=None,
+            started_domains=normalized,
+            index_status="up_to_date",
+            index_job_id=None,
+            eval_job_id=eval_job_id,
+            desired_hashes=desired_hashes,
+            orchestration_job_id=None,
+            domains_state=domains_state,
+        )
 
     orch = enqueue_domain_eval_orchestration_job(tenant, normalized, desired_hashes_per_domain)
     orchestration_job_id = orch["id"]

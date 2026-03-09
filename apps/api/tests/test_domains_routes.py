@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -121,9 +122,10 @@ def test_evaluate_domains_rejects_quote_form_subdomains() -> None:
 
 
 def test_evaluate_domains_all_done_returns_orchestration_job_and_domains_state() -> None:
-    """All domains DONE => enqueue orchestration job only; return orchestration_job_id and per-domain state."""
+    """All domains DONE => create domain_eval_job; return eval_job_id and per-domain state."""
     tenant = f"tenant-{uuid.uuid4().hex[:8]}"
-    orch_id = "9f3021a6-8e6c-454a-95e2-a9dbcc8358dd"
+    eval_job_id = "9f3021a6-8e6c-454a-95e2-a9dbcc8358dd"
+    orch_id = "00000000-8e6c-454a-95e2-a9dbcc8358dd"  # unused when all_done; for patch only
     with patch("apps.api.routes.domains.delete_invalid_eval_domains", return_value=0), patch(
         "apps.api.routes.domains.add_eval_domain", return_value=True
     ), patch(
@@ -136,9 +138,23 @@ def test_evaluate_domains_all_done_returns_orchestration_job_and_domains_state()
             "already_enqueued": False,
         },
     ), patch(
-        "apps.api.routes.domains.enqueue_domain_eval_orchestration_job",
-        return_value={"id": orch_id, "tenant_id": tenant, "domains": ["one.com"], "status": "PENDING"},
-    ), patch("apps.api.routes.domains.get_domain_eval_job", return_value=None), patch(
+        "apps.api.routes.domains.enqueue_domain_eval_job",
+        return_value={"id": eval_job_id, "tenant_id": tenant, "domains": ["one.com"], "status": "PENDING"},
+    ), patch(
+        "apps.api.routes.domains.get_domain_eval_job",
+        side_effect=lambda t, jid: (
+            {
+                "id": eval_job_id,
+                "tenant_id": t,
+                "status": "PENDING",
+                "total": 1,
+                "completed": 0,
+                "created_at": datetime.now(timezone.utc),
+            }
+            if jid == eval_job_id
+            else None
+        ),
+    ), patch(
         "apps.api.routes.domains.get_domain_ingest_job", return_value=None
     ), patch(
         "apps.api.routes.domains.get_domain_eval_orchestration_job",
@@ -158,17 +174,17 @@ def test_evaluate_domains_all_done_returns_orchestration_job_and_domains_state()
         )
         assert start.status_code == 202
         body = start.json()
-        assert body["orchestration_job_id"] == orch_id
-        assert body["job_id"] == orch_id
+        assert body["eval_job_id"] == eval_job_id
+        assert body["job_id"] == eval_job_id
+        assert body["orchestration_job_id"] is None
         assert body["index_status"] == "up_to_date"
-        assert body["eval_job_id"] is None
-        assert body["status_url"] == f"/tenants/{tenant}/jobs/{orch_id}"
+        assert body["status_url"] == f"/tenants/{tenant}/jobs/{eval_job_id}"
         assert "desired_hashes" in body
         domains_state = body.get("domains_state") or []
         assert len(domains_state) == 1
         assert domains_state[0]["domain"] == "one.com" and domains_state[0]["state"] == "DONE"
 
-        status = client.get(f"/tenants/{tenant}/jobs/{orch_id}", headers=_auth(tenant))
+        status = client.get(f"/tenants/{tenant}/jobs/{eval_job_id}", headers=_auth(tenant))
         assert status.status_code == 200
         assert status.json()["status"] in {"running", "pending", "done", "failed"}
 

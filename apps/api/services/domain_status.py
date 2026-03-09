@@ -50,17 +50,14 @@ def derive_domain_status(
     if eval_status == "FAILED":
         return "FAILED"
 
-    # EVALUATING: indexed but eval in progress (eval job RUNNING/PENDING, or this domain is current_domain of running orchestrate)
+    # EVALUATING only when backend has a PENDING/RUNNING domain_eval_job for this domain (eval_status from that job)
     if state_status == "DONE":
         if eval_status in ("RUNNING", "PENDING"):
             return "EVALUATING"
-        if orchestrate_current_domain and domain and orchestrate_current_domain == domain:
-            return "EVALUATING"
-        # DONE only when eval completed successfully
         if eval_status == "DONE":
             return "DONE"
-        # Indexed but no eval run yet (e.g. just finished ingest) -> show as INDEXING or EVALUATING; treat as EVALUATING if we're in orchestrate flow, else could show DONE for "indexed only". Per user: DONE = indexed + eval DONE, so if eval not DONE we should not show DONE.
-        return "EVALUATING"
+        # Indexed but no eval job or eval result: do not show Running (no EVALUATING without real job)
+        return "INDEXING"
 
     return "UNINDEXED"
 

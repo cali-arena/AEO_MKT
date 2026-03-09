@@ -9,8 +9,8 @@ from apps.api.services.domain_status import derive_domain_status, get_domains_wi
 
 def test_derive_domain_status_never_done_unless_index_and_eval_done() -> None:
     """ui_status is NEVER DONE unless index_state is DONE and eval job is DONE."""
-    # Index DONE but eval NONE -> EVALUATING (not DONE)
-    assert derive_domain_status({"status": "DONE"}, None, domain="d1.com") == "EVALUATING"
+    # Index DONE but eval NONE -> INDEXING (no job so do not show EVALUATING/Running)
+    assert derive_domain_status({"status": "DONE"}, None, domain="d1.com") == "INDEXING"
     # Index DONE, eval PENDING -> EVALUATING
     assert derive_domain_status({"status": "DONE"}, "PENDING", domain="d1.com") == "EVALUATING"
     # Index DONE, eval RUNNING -> EVALUATING
