@@ -6,6 +6,7 @@ All tenant-scoped queries MUST use tenant_filters (select_*_for_tenant / tenant_
 GUARD: Every function MUST call require_tenant_id(tenant_id) before any DB access.
 """
 
+import logging
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
@@ -29,6 +30,8 @@ from apps.api.models.entity_mention import EntityMention
 from apps.api.models.relation import Relation
 from apps.api.models.section import Section
 from apps.api.models.tenant_index_version import TenantIndexVersion
+logger = logging.getLogger(__name__)
+
 from apps.api.repositories.tenant_filters import (
     select_ac_embedding_for_tenant,
     select_ec_embedding_for_tenant,
@@ -1251,65 +1254,82 @@ def list_eval_domains(tenant_id: str | None) -> list[str]:
 
 
 def delete_domain_data(tenant_id: str | None, domain: str) -> None:
-    """Delete all rows for this tenant+domain in dependency order. Uses one transaction; rollback on any failure."""
+    """Delete all rows for this tenant+domain in dependency order. Uses one transaction; rollback on any failure.
+
+    Note: domain_*_job tables store domains as a JSONB array of strings (e.g. ["example.com"]).
+    Use domains ? :domain to match rows whose array contains the domain string.
+    """
     tenant_id = require_tenant_id(tenant_id)
     domain = (domain or "").strip().lower()
     if not domain:
         raise ValueError("domain is required")
+    params = {"tid": tenant_id, "domain": domain}
     with get_db() as session:
         # Relations reference evidence; delete first
+        logger.info("delete_domain_data removing relations (via evidence) tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text(
                 "DELETE FROM relations WHERE tenant_id = :tid AND evidence_id IN "
                 "(SELECT evidence_id FROM evidence WHERE tenant_id = :tid AND domain = :domain)"
             ),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
-        session.execute(text("DELETE FROM evidence WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
-        session.execute(text("DELETE FROM ac_embeddings WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
-        session.execute(text("DELETE FROM ec_embeddings WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        logger.info("delete_domain_data removing evidence, ac_embeddings, ec_embeddings tenant=%s domain=%s", tenant_id, domain)
+        session.execute(text("DELETE FROM evidence WHERE tenant_id = :tid AND domain = :domain"), params)
+        session.execute(text("DELETE FROM ac_embeddings WHERE tenant_id = :tid AND domain = :domain"), params)
+        session.execute(text("DELETE FROM ec_embeddings WHERE tenant_id = :tid AND domain = :domain"), params)
+        logger.info("delete_domain_data removing entity_mentions, entities, sections tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text(
                 "DELETE FROM entity_mentions WHERE tenant_id = :tid AND section_id IN "
                 "(SELECT section_id FROM sections WHERE tenant_id = :tid AND domain = :domain)"
             ),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
         session.execute(
             text(
                 "DELETE FROM entities WHERE tenant_id = :tid AND section_id IN "
                 "(SELECT section_id FROM sections WHERE tenant_id = :tid AND domain = :domain)"
             ),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
-        session.execute(text("DELETE FROM sections WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
-        session.execute(text("DELETE FROM raw_page WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
-        session.execute(text("DELETE FROM eval_result WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM sections WHERE tenant_id = :tid AND domain = :domain"), params)
+        logger.info("delete_domain_data removing raw_page, eval_result tenant=%s domain=%s", tenant_id, domain)
+        session.execute(text("DELETE FROM raw_page WHERE tenant_id = :tid AND domain = :domain"), params)
+        session.execute(text("DELETE FROM eval_result WHERE tenant_id = :tid AND domain = :domain"), params)
+        logger.info("delete_domain_data removing domain_ingest_job tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text("DELETE FROM domain_ingest_job WHERE tenant_id = :tid AND domain = :domain"),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
-        session.execute(
-            text("DELETE FROM domain_eval_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"),
-            {"tid": tenant_id, "domain": domain},
-        )
+        # domains column is JSONB array of strings; ? checks whether the domain string exists in the array
+        logger.info("delete_domain_data removing domain_eval_job tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text(
-                "DELETE FROM domain_orchestrate_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"
+                "DELETE FROM domain_eval_job WHERE tenant_id = :tid AND domains ? :domain"
             ),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
+        logger.info("delete_domain_data removing domain_orchestrate_job tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text(
-                "DELETE FROM domain_eval_orchestration_job WHERE tenant_id = :tid AND domains @> to_jsonb(:domain)"
+                "DELETE FROM domain_orchestrate_job WHERE tenant_id = :tid AND domains ? :domain"
             ),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
+        logger.info("delete_domain_data removing domain_eval_orchestration_job tenant=%s domain=%s", tenant_id, domain)
+        session.execute(
+            text(
+                "DELETE FROM domain_eval_orchestration_job WHERE tenant_id = :tid AND domains ? :domain"
+            ),
+            params,
+        )
+        logger.info("delete_domain_data removing domain_index_state, eval_domain tenant=%s domain=%s", tenant_id, domain)
         session.execute(
             text("DELETE FROM domain_index_state WHERE tenant_id = :tid AND domain = :domain"),
-            {"tid": tenant_id, "domain": domain},
+            params,
         )
-        session.execute(text("DELETE FROM eval_domain WHERE tenant_id = :tid AND domain = :domain"), {"tid": tenant_id, "domain": domain})
+        session.execute(text("DELETE FROM eval_domain WHERE tenant_id = :tid AND domain = :domain"), params)
 
 
 def get_latest_eval_run(tenant_id: str | None) -> EvalRun | None:
