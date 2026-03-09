@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
 import { MetricBadge } from "@/components/ui/MetricBadge";
 import { apiFetch, ApiError } from "@/lib/api";
+import { resolveDomainStatus, resolvedStatusBadgeClass } from "@/lib/domainStatus";
 import type {
   DomainJobStatusResponse,
   DomainListItem,
@@ -15,47 +16,9 @@ import type {
   DomainsEvaluateResponse,
   DomainsListResponse,
   EvalMetricsRates,
-  ResolvedDomainStatus,
 } from "@/lib/types";
 
 type SortKey = keyof EvalMetricsRates | "domain" | "status" | "actions";
-
-/**
- * Resolve display status from API row. Prefers result-based signals so domains with
- * eval results show DONE even when job-level aggregation still says EVALUATING.
- */
-function resolveDomainStatus(row: DomainListItem): ResolvedDomainStatus {
-  const hasResults =
-    (row.total_results ?? 0) > 0 ||
-    (row.eval_result_count ?? 0) > 0 ||
-    !!row.last_run_created_at ||
-    !!row.last_result_at;
-  if (hasResults) return "DONE";
-  if (
-    !!row.last_error ||
-    !!row.failure_reason ||
-    (row.failed_count ?? 0) > 0
-  )
-    return "FAILED";
-  if (
-    row.status === "running" ||
-    row.ui_status === "EVALUATING" ||
-    row.ui_status === "INDEXING" ||
-    (row.running_count ?? 0) > 0
-  )
-    return "EVALUATING";
-  return "PENDING";
-}
-
-function statusBadgeClass(uiStatus: string | null | undefined): string {
-  if (!uiStatus) return "bg-gray-100 text-gray-700";
-  const u = uiStatus.toUpperCase();
-  if (u === "DONE") return "bg-emerald-100 text-emerald-800";
-  if (u === "FAILED") return "bg-rose-100 text-rose-800";
-  if (u === "EVALUATING") return "bg-blue-100 text-blue-800";
-  if (u === "INDEXING") return "bg-amber-100 text-amber-800";
-  return "bg-gray-100 text-gray-600";
-}
 
 function statusDetailsTooltip(row: DomainListItem): string {
   const parts: string[] = [];
@@ -754,7 +717,7 @@ export default function DomainsPage() {
                   <td className="px-3 py-2" title={tooltip || undefined}>
                     <div className="flex flex-col gap-0.5">
                       <span
-                        className={`inline-flex w-fit rounded-md px-2 py-0.5 text-xs font-medium ${statusBadgeClass(resolvedStatus)}`}
+                        className={`inline-flex w-fit rounded-md px-2 py-0.5 text-xs font-medium ${resolvedStatusBadgeClass(resolvedStatus)}`}
                       >
                         {resolvedStatus}
                       </span>
