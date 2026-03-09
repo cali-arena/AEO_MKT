@@ -364,8 +364,8 @@ export default function DomainsPage() {
       setDeleteConfirmDomain(null);
       try {
         await apiFetch<{ ok: boolean; deleted_domain: string }>(
-          `${domainsPath(tenantId)}/${encodeURIComponent(domain)}`,
-          { method: "DELETE", tenantId }
+          `${domainsPath(tenantId)}/${encodeURIComponent(domain)}/delete`,
+          { method: "POST", tenantId }
         );
         showToast("success", "Domain removed");
         await refresh();

@@ -260,19 +260,10 @@ def _ui_status_to_display_status(ui_status: str | None) -> Literal["pending", "r
     return "pending"
 
 
-@router.delete(
-    "/tenants/{tenant_id}/domains/{domain:path}",
-    response_model=DomainDeletedResponse,
-)
-async def delete_domain(
-    tenant_id: str,
-    domain: str,
-    auth_tenant_id: TenantId,
-) -> DomainDeletedResponse:
-    """Remove a domain from the monitored list and delete all related DB rows (eval_domain, domain_index_state, raw_page, jobs, sections, embeddings, evidence)."""
-    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+def _delete_domain_impl(tenant: str, domain_raw: str) -> DomainDeletedResponse:
+    """Shared implementation for DELETE and POST delete; normalizes domain, deletes data, returns response."""
     try:
-        domain_normalized = _normalize_domain(domain)
+        domain_normalized = _normalize_domain(domain_raw)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     try:
@@ -285,6 +276,34 @@ async def delete_domain(
         )
     logger.info("domain_deleted tenant_id=%s domain=%s", tenant, domain_normalized)
     return DomainDeletedResponse(ok=True, deleted_domain=domain_normalized)
+
+
+@router.delete(
+    "/tenants/{tenant_id}/domains/{domain:path}",
+    response_model=DomainDeletedResponse,
+)
+async def delete_domain(
+    tenant_id: str,
+    domain: str,
+    auth_tenant_id: TenantId,
+) -> DomainDeletedResponse:
+    """Remove a domain from the monitored list and delete all related DB rows (eval_domain, domain_index_state, raw_page, jobs, sections, embeddings, evidence)."""
+    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    return _delete_domain_impl(tenant, domain)
+
+
+@router.post(
+    "/tenants/{tenant_id}/domains/{domain:path}/delete",
+    response_model=DomainDeletedResponse,
+)
+async def post_delete_domain(
+    tenant_id: str,
+    domain: str,
+    auth_tenant_id: TenantId,
+) -> DomainDeletedResponse:
+    """Same as DELETE .../domains/{domain}. POST is used when proxies block DELETE (e.g. 405 Method Not Allowed)."""
+    tenant = _enforce_tenant_match(tenant_id, auth_tenant_id)
+    return _delete_domain_impl(tenant, domain)
 
 
 @router.delete(

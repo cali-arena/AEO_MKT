@@ -330,3 +330,18 @@ def test_delete_domain_removes_domain_and_returns_ok() -> None:
     body = res.json()
     assert body["ok"] is True
     assert body["deleted_domain"] == domain
+
+
+def test_post_delete_domain_removes_domain_and_returns_ok() -> None:
+    """POST .../domains/{domain}/delete works when DELETE is blocked (e.g. 405 from proxy)."""
+    tenant = f"tenant-{uuid.uuid4().hex[:8]}"
+    domain = "unitedglobalvanline.com"
+    with patch("apps.api.routes.domains.delete_domain_data"):
+        res = client.post(
+            f"/tenants/{tenant}/domains/{domain}/delete",
+            headers=_auth(tenant),
+        )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["ok"] is True
+    assert body["deleted_domain"] == domain
