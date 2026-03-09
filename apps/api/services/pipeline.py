@@ -40,6 +40,7 @@ from apps.api.services.repo import (
     get_artifact_counts_for_raw_page,
     get_sections_by_raw_page_id,
     insert_raw_page,
+    list_eval_domains,
 )
 from apps.api.services.sectionize import sectionize_and_persist
 from apps.api.services.url_utils import canonicalize_url
@@ -108,12 +109,23 @@ def run_day1_pipeline(
         _store_excluded_raw_page(tenant_id, canonical_url, domain, reason)
         return {"excluded": True, "reason": reason, "url": url, "page_type": PAGE_TYPE_EXCLUDED}
 
-    # 2) Enforce allowed domain
+    # 2) Enforce allowed domain: policy allowed_domains OR tenant's registered eval domains (so Evaluate works for added domains)
     policy = load_policy()
-    allowed_domains = policy.get("allowed_domains", [])
-    if domain and domain not in allowed_domains:
-        logger.info("Day1 pipeline domain not allowed url=%s domain=%s", url, domain)
+    policy_allowed = [d.strip().lower() for d in policy.get("allowed_domains", []) if d]
+    registered = [d.strip().lower() for d in list_eval_domains(tenant_id) if d]
+    allowed_set = set(policy_allowed) | set(registered)
+    domain_normalized = (domain or "").strip().lower()
+    if domain_normalized and domain_normalized not in allowed_set:
+        logger.info(
+            "Day1 pipeline domain not allowed url=%s domain=%s allowed_policy=%s allowed_registered=%s",
+            url,
+            domain_normalized,
+            sorted(policy_allowed),
+            sorted(registered),
+        )
         raise ValueError("domain_not_allowed")
+    if domain_normalized and allowed_set:
+        logger.info("Day1 pipeline domain allowed url=%s domain=%s", url, domain_normalized)
 
     # 3) Fetch
     fetch_result = _fetch(url)
