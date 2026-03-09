@@ -34,13 +34,13 @@ from apps.api.services.ingest import ingest_page
 from apps.api.services.page_type import infer_page_type
 from apps.api.services.policy import crawl_policy_version as get_crawl_policy_version
 from apps.api.services.policy import load_policy
+from apps.api.services.domain_gate import get_effective_allowed_domains, normalize_host
 from apps.api.services.repo import (
     delete_ac_embeddings_for_section_ids,
     delete_ec_embeddings_for_section_ids,
     get_artifact_counts_for_raw_page,
     get_sections_by_raw_page_id,
     insert_raw_page,
-    list_eval_domains,
 )
 from apps.api.services.sectionize import sectionize_and_persist
 from apps.api.services.url_utils import canonicalize_url
@@ -109,33 +109,28 @@ def run_day1_pipeline(
         _store_excluded_raw_page(tenant_id, canonical_url, domain, reason)
         return {"excluded": True, "reason": reason, "url": url, "page_type": PAGE_TYPE_EXCLUDED}
 
-    # 2) Enforce allowed domain: policy allowed_domains OR tenant's registered eval domains (so Evaluate works for added domains)
-    policy = load_policy()
-    policy_allowed = [d.strip().lower() for d in policy.get("allowed_domains", []) if d]
-    registered = [d.strip().lower() for d in list_eval_domains(tenant_id) if d]
-    allowed_set = set(policy_allowed) | set(registered)
-    domain_normalized = (domain or "").strip().lower()
-    if domain_normalized and domain_normalized not in allowed_set:
+    # 2) Enforce allowed domain: policy ∪ tenant registered ∪ current requested domain
+    domain_normalized = normalize_host(domain)
+    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    if domain_normalized and domain_normalized not in effective_allowed:
         logger.info(
-            "Day1 pipeline domain not allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s "
-            "allowed_policy=%s allowed_registered=%s rejection_reason=domain_not_in_policy_or_tenant_registered",
+            "Day1 pipeline domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
+            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
             tenant_id,
             url,
             domain,
             domain_normalized,
-            sorted(policy_allowed),
-            sorted(registered),
+            sorted(effective_allowed),
         )
         raise ValueError("domain_not_allowed")
-    if domain_normalized and allowed_set:
-        match_source = "tenant_registered" if domain_normalized in set(registered) else "policy"
+    if domain_normalized:
         logger.info(
-            "Day1 pipeline domain allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s match_source=%s",
+            "Day1 pipeline domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s effective_allowed_domains=%s",
             tenant_id,
             url,
             domain,
             domain_normalized,
-            match_source,
+            sorted(effective_allowed),
         )
 
     # 3) Fetch

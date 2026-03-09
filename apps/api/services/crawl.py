@@ -11,9 +11,10 @@ import requests
 from apps.api.services.crawl_rules import classify_url, is_url_allowed
 from apps.api.services.extract import extract_main_text
 from apps.api.services.normalize import content_hash
+from apps.api.services.domain_gate import get_effective_allowed_domains, normalize_host
 from apps.api.services.policy import crawl_policy_version as get_crawl_policy_version
 from apps.api.services.policy import load_policy
-from apps.api.services.repo import insert_raw_page, list_eval_domains
+from apps.api.services.repo import insert_raw_page
 from apps.api.services.url_utils import canonicalize_url
 
 BACKOFF_SECONDS = (0.5, 1, 2)
@@ -24,36 +25,31 @@ def crawl_and_persist(tenant_id: str, url: str) -> dict[str, Any]:
     Crawl URL and persist to raw_page.
     Flow: canonicalize -> domain gate -> fetch_html -> extract_main_text -> content_hash -> insert_raw_page.
     Returns {raw_page_id, canonical_url, domain, page_type, crawl_policy_version, content_hash}.
-    Domain gate: allow if domain is in policy.allowed_domains OR in tenant's registered eval domains.
-    Raises ValueError("domain_not_allowed") if domain not in either set.
+    Domain gate: allow if domain in (policy ∪ tenant registered ∪ current requested domain).
+    Raises ValueError("domain_not_allowed") if domain not in effective allowlist.
     """
     canonical_url, domain = canonicalize_url(url)
-    policy = load_policy()
-    policy_allowed = [d.strip().lower() for d in policy.get("allowed_domains", []) if d]
-    registered = [d.strip().lower() for d in list_eval_domains(tenant_id) if d]
-    allowed_set = set(policy_allowed) | set(registered)
-    domain_normalized = (domain or "").strip().lower()
-    if domain_normalized and domain_normalized not in allowed_set:
+    domain_normalized = normalize_host(domain)
+    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    if domain_normalized and domain_normalized not in effective_allowed:
         logger.info(
-            "crawl_and_persist domain not allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s "
-            "allowed_policy=%s allowed_registered=%s rejection_reason=domain_not_in_policy_or_tenant_registered",
+            "crawl_and_persist domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
+            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
             tenant_id,
             url,
             domain,
             domain_normalized,
-            sorted(policy_allowed),
-            sorted(registered),
+            sorted(effective_allowed),
         )
         raise ValueError("domain_not_allowed")
-    if domain_normalized and allowed_set:
-        match_source = "tenant_registered" if domain_normalized in set(registered) else "policy"
+    if domain_normalized:
         logger.info(
-            "crawl_and_persist domain allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s match_source=%s",
+            "crawl_and_persist domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s effective_allowed_domains=%s",
             tenant_id,
             url,
             domain,
             domain_normalized,
-            match_source,
+            sorted(effective_allowed),
         )
 
     html = fetch_html(url)
@@ -148,6 +144,7 @@ DEFAULT_USER_AGENT = "AI-MKT-Crawler/1.0"
 def fetch_url(
     url: str,
     *,
+    tenant_id: str | None = None,
     timeout: int = DEFAULT_TIMEOUT,
     user_agent: str = DEFAULT_USER_AGENT,
 ) -> dict[str, Any]:
@@ -155,7 +152,9 @@ def fetch_url(
     Fetch a single URL. No recursion.
     Returns {final_url, status_code, html, fetched_at} on success, or
     {excluded: True, reason: str, url: str} when excluded by crawl rules.
-    Raises ValueError("domain_not_allowed") if domain not in policy allowed_domains.
+    Domain gate: when tenant_id is set, use effective allowlist (policy ∪ tenant registered ∪ requested domain);
+    when tenant_id is None, use policy.allowed_domains only.
+    Raises ValueError("domain_not_allowed") if domain not in effective allowlist.
     """
     allowed, reason = is_url_allowed(url)
     if not allowed:
@@ -163,9 +162,18 @@ def fetch_url(
         return {"excluded": True, "reason": reason, "url": url}
 
     _, domain = canonicalize_url(url)
-    policy = load_policy()
-    allowed_domains = policy.get("allowed_domains", [])
-    if domain and domain not in allowed_domains:
+    domain_normalized = normalize_host(domain)
+    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    if domain_normalized and domain_normalized not in effective_allowed:
+        logger.info(
+            "fetch_url domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
+            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
+            tenant_id,
+            url,
+            domain,
+            domain_normalized,
+            sorted(effective_allowed),
+        )
         raise ValueError("domain_not_allowed")
 
     logger.info("Fetching url=%s", url)
