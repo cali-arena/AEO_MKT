@@ -109,27 +109,35 @@ def run_day1_pipeline(
         _store_excluded_raw_page(tenant_id, canonical_url, domain, reason)
         return {"excluded": True, "reason": reason, "url": url, "page_type": PAGE_TYPE_EXCLUDED}
 
-    # 2) Enforce allowed domain: policy ∪ tenant registered ∪ current requested domain
+    # 2) Enforce allowed domain: static policy ∪ tenant registered ∪ current requested domain
     domain_normalized = normalize_host(domain)
-    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    effective_allowed, static_allowed, tenant_registered = get_effective_allowed_domains(
+        tenant_id, requested_domain=domain
+    )
     if domain_normalized and domain_normalized not in effective_allowed:
         logger.info(
             "Day1 pipeline domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
-            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
+            "static_allowed_domains=%s tenant_registered_domains=%s effective_allowed_domains=%s "
+            "rejection_reason=domain_not_in_effective_allowlist",
             tenant_id,
             url,
             domain,
             domain_normalized,
+            sorted(static_allowed),
+            sorted(tenant_registered),
             sorted(effective_allowed),
         )
         raise ValueError("domain_not_allowed")
     if domain_normalized:
         logger.info(
-            "Day1 pipeline domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s effective_allowed_domains=%s",
+            "Day1 pipeline domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
+            "static_allowed_domains=%s tenant_registered_domains=%s effective_allowed_domains=%s",
             tenant_id,
             url,
             domain,
             domain_normalized,
+            sorted(static_allowed),
+            sorted(tenant_registered),
             sorted(effective_allowed),
         )
 

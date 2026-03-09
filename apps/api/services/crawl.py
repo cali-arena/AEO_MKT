@@ -30,28 +30,37 @@ def crawl_and_persist(tenant_id: str, url: str) -> dict[str, Any]:
     """
     canonical_url, domain = canonicalize_url(url)
     domain_normalized = normalize_host(domain)
-    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    effective_allowed, static_allowed, tenant_registered = get_effective_allowed_domains(
+        tenant_id, requested_domain=domain
+    )
     if domain_normalized and domain_normalized not in effective_allowed:
         logger.info(
             "crawl_and_persist domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
-            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
+            "static_allowed_domains=%s tenant_registered_domains=%s effective_allowed_domains=%s "
+            "rejection_reason=domain_not_in_effective_allowlist",
             tenant_id,
             url,
             domain,
             domain_normalized,
+            sorted(static_allowed),
+            sorted(tenant_registered),
             sorted(effective_allowed),
         )
         raise ValueError("domain_not_allowed")
     if domain_normalized:
         logger.info(
-            "crawl_and_persist domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s effective_allowed_domains=%s",
+            "crawl_and_persist domain allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
+            "static_allowed_domains=%s tenant_registered_domains=%s effective_allowed_domains=%s",
             tenant_id,
             url,
             domain,
             domain_normalized,
+            sorted(static_allowed),
+            sorted(tenant_registered),
             sorted(effective_allowed),
         )
 
+    policy = load_policy()
     html = fetch_html(url)
     text = extract_main_text(html)
     ch = content_hash(text)
@@ -163,15 +172,20 @@ def fetch_url(
 
     _, domain = canonicalize_url(url)
     domain_normalized = normalize_host(domain)
-    effective_allowed = get_effective_allowed_domains(tenant_id, requested_domain=domain)
+    effective_allowed, static_allowed, tenant_registered = get_effective_allowed_domains(
+        tenant_id, requested_domain=domain
+    )
     if domain_normalized and domain_normalized not in effective_allowed:
         logger.info(
             "fetch_url domain not allowed tenant_id=%s url=%s parsed_host=%s requested_domain=%s "
-            "effective_allowed_domains=%s rejection_reason=domain_not_in_effective_allowlist",
+            "static_allowed_domains=%s tenant_registered_domains=%s effective_allowed_domains=%s "
+            "rejection_reason=domain_not_in_effective_allowlist",
             tenant_id,
             url,
             domain,
             domain_normalized,
+            sorted(static_allowed),
+            sorted(tenant_registered),
             sorted(effective_allowed),
         )
         raise ValueError("domain_not_allowed")

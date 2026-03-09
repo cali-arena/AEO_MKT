@@ -9,35 +9,28 @@ from apps.api.services.repo import list_eval_domains
 
 
 def normalize_host(host: str | None) -> str:
-    """Single shared hostname normalizer: strip, lowercase. Use with parsed host from URL."""
+    """Shared hostname normalizer: strip, lowercase, no trailing dot. Host only (no scheme/path)."""
     if host is None:
         return ""
-    return (host or "").strip().lower()
+    return (host or "").strip().lower().strip(".")
 
 
 def get_effective_allowed_domains(
     tenant_id: str | None,
     requested_domain: str | None = None,
-) -> set[str]:
+) -> tuple[set[str], list[str], list[str]]:
     """
-    Build effective allowlist for domain gate:
-    policy.allowed_domains UNION tenant registered eval domains UNION requested_domain (current crawl target).
-
-    - tenant_id: when set, include list_eval_domains(tenant_id).
-    - requested_domain: when set, always include so the domain being evaluated this run is allowed.
-    Returns set of normalized hostnames (exact match only; no off-domain).
+    Build effective allowlist: static policy U tenant registered U requested_domain (when tenant_id set).
+    Returns (effective_set, static_allowed_list, tenant_registered_list) for logging.
     """
     policy = load_policy()
-    policy_allowed = [
-        normalize_host(d) for d in policy.get("allowed_domains", []) if d
-    ]
-    registered = (
+    static_allowed = [normalize_host(d) for d in policy.get("allowed_domains", []) if d]
+    tenant_registered = (
         [normalize_host(d) for d in list_eval_domains(tenant_id) if d]
         if tenant_id
         else []
     )
-    effective = set(policy_allowed) | set(registered)
-    # Only allow current requested domain when we have tenant context (ingest/evaluate run)
+    effective = set(static_allowed) | set(tenant_registered)
     if requested_domain and tenant_id:
         effective.add(normalize_host(requested_domain))
-    return effective
+    return (effective, static_allowed, tenant_registered)
