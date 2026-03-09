@@ -13,7 +13,7 @@ from apps.api.services.extract import extract_main_text
 from apps.api.services.normalize import content_hash
 from apps.api.services.policy import crawl_policy_version as get_crawl_policy_version
 from apps.api.services.policy import load_policy
-from apps.api.services.repo import insert_raw_page
+from apps.api.services.repo import insert_raw_page, list_eval_domains
 from apps.api.services.url_utils import canonicalize_url
 
 BACKOFF_SECONDS = (0.5, 1, 2)
@@ -24,13 +24,37 @@ def crawl_and_persist(tenant_id: str, url: str) -> dict[str, Any]:
     Crawl URL and persist to raw_page.
     Flow: canonicalize -> domain gate -> fetch_html -> extract_main_text -> content_hash -> insert_raw_page.
     Returns {raw_page_id, canonical_url, domain, page_type, crawl_policy_version, content_hash}.
-    Raises ValueError("domain_not_allowed") if domain not in policy.
+    Domain gate: allow if domain is in policy.allowed_domains OR in tenant's registered eval domains.
+    Raises ValueError("domain_not_allowed") if domain not in either set.
     """
     canonical_url, domain = canonicalize_url(url)
     policy = load_policy()
-    allowed_domains = policy.get("allowed_domains", [])
-    if domain and domain not in allowed_domains:
+    policy_allowed = [d.strip().lower() for d in policy.get("allowed_domains", []) if d]
+    registered = [d.strip().lower() for d in list_eval_domains(tenant_id) if d]
+    allowed_set = set(policy_allowed) | set(registered)
+    domain_normalized = (domain or "").strip().lower()
+    if domain_normalized and domain_normalized not in allowed_set:
+        logger.info(
+            "crawl_and_persist domain not allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s "
+            "allowed_policy=%s allowed_registered=%s rejection_reason=domain_not_in_policy_or_tenant_registered",
+            tenant_id,
+            url,
+            domain,
+            domain_normalized,
+            sorted(policy_allowed),
+            sorted(registered),
+        )
         raise ValueError("domain_not_allowed")
+    if domain_normalized and allowed_set:
+        match_source = "tenant_registered" if domain_normalized in set(registered) else "policy"
+        logger.info(
+            "crawl_and_persist domain allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s match_source=%s",
+            tenant_id,
+            url,
+            domain,
+            domain_normalized,
+            match_source,
+        )
 
     html = fetch_html(url)
     text = extract_main_text(html)

@@ -117,15 +117,26 @@ def run_day1_pipeline(
     domain_normalized = (domain or "").strip().lower()
     if domain_normalized and domain_normalized not in allowed_set:
         logger.info(
-            "Day1 pipeline domain not allowed url=%s domain=%s allowed_policy=%s allowed_registered=%s",
+            "Day1 pipeline domain not allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s "
+            "allowed_policy=%s allowed_registered=%s rejection_reason=domain_not_in_policy_or_tenant_registered",
+            tenant_id,
             url,
+            domain,
             domain_normalized,
             sorted(policy_allowed),
             sorted(registered),
         )
         raise ValueError("domain_not_allowed")
     if domain_normalized and allowed_set:
-        logger.info("Day1 pipeline domain allowed url=%s domain=%s", url, domain_normalized)
+        match_source = "tenant_registered" if domain_normalized in set(registered) else "policy"
+        logger.info(
+            "Day1 pipeline domain allowed tenant_id=%s url=%s parsed_host=%s normalized_host=%s match_source=%s",
+            tenant_id,
+            url,
+            domain,
+            domain_normalized,
+            match_source,
+        )
 
     # 3) Fetch
     fetch_result = _fetch(url)
