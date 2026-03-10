@@ -66,11 +66,11 @@ const KPI_ITEMS: Array<{
   format: "percent" | "number" | "decimal";
   accent?: "primary" | "success" | "warning" | "error" | "neutral";
 }> = [
+  { key: "composite_index", label: "AI Visibility Score", format: "decimal", accent: "primary" },
   { key: "mention_rate", label: "Mention rate", format: "percent", accent: "primary" },
   { key: "citation_rate", label: "Citation rate", format: "percent", accent: "primary" },
   { key: "attribution_accuracy", label: "Attribution accuracy", format: "percent", accent: "success" },
   { key: "hallucinations", label: "Hallucinations", format: "number", accent: "error" },
-  { key: "composite_index", label: "AI Visibility Score", format: "decimal", accent: "primary" },
 ];
 
 function domainsPath(tenantId: string): string {
@@ -287,16 +287,18 @@ export default function OverviewPage() {
       last.citation_rate - first.citation_rate,
       last.attribution_accuracy - first.attribution_accuracy,
     ];
-    const improved = deltas.filter((d) => d > 0.002).length;
-    const declined = deltas.filter((d) => d < -0.002).length;
-    if (improved === 3) {
-      return "Visibility has improved across recent evaluations.";
+    const flatThreshold = 0.01;
+    const isStable = deltas.every((d) => Math.abs(d) < flatThreshold);
+    if (isStable) {
+      return "Visibility is stable across recent evaluations.";
     }
-    if (improved >= 2 && declined === 0) {
-      return "Most visibility quality signals are improving.";
+    const improved = deltas.filter((d) => d > flatThreshold).length;
+    const declined = deltas.filter((d) => d < -flatThreshold).length;
+    if (improved > declined) {
+      return "Visibility is improving across recent evaluations.";
     }
-    if (declined >= 2 && improved === 0) {
-      return "Recent evaluations show declining visibility quality and should be reviewed.";
+    if (declined > improved) {
+      return "Visibility has softened across recent evaluations.";
     }
     return "Visibility trend is mixed across recent evaluations.";
   }, [growthData]);
@@ -516,23 +518,75 @@ export default function OverviewPage() {
 
       {/* ───────────────────────────────────────── */}
       {/* 2. Hero KPI block + KPI trend indicators  */}
-      {/* Key metrics: AI Visibility Score, Mention, Citation, Attribution, Hallucinations. */}
-      {/* Trends are inline on each card (current vs previous run). */}
-      {/* User understands: portfolio health at a glance and direction of change. */}
+      {/* AI Visibility Score is the primary anchor (first, slightly emphasized). */}
       {/* Data: /metrics/latest → kpis; /eval/runs?limit=2 → kpiTrends. */}
       {/* ───────────────────────────────────────── */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {KPI_ITEMS.map(({ key, label, format, accent }) => (
-          <KpiCard
+          <div
             key={key}
-            label={label}
-            value={kpis[key]}
-            format={format}
-            accent={accent}
-            trend={kpiTrends[key] ?? null}
-          />
+            className={key === "composite_index" ? "xl:col-span-2 ring-2 ring-blue-200/50 rounded-xl bg-blue-50/30" : undefined}
+          >
+            <KpiCard
+              label={label}
+              value={kpis[key]}
+              format={format}
+              accent={accent}
+              trend={kpiTrends[key] ?? null}
+            />
+            {key === "composite_index" && (
+              <p className="px-5 pb-4 text-xs text-gray-500">Primary portfolio metric</p>
+            )}
+          </div>
         ))}
       </div>
+
+      {/* ───────────────────────────────────────── */}
+      {/* 2b. Driver contribution analysis         */}
+      {/* What drives the AI Visibility Score: mention, citation, attribution (equal weight); risk from hallucinations. */}
+      {/* Data: kpis (real); backend formula is (mr+cr+aa)/3 − hall_rate×0.1. */}
+      {/* ───────────────────────────────────────── */}
+      <section className="mt-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <h3 className="text-sm font-semibold text-gray-900">Driver contribution analysis</h3>
+        <p className="mt-0.5 text-xs text-gray-500">These quality signals contribute equally to your AI Visibility Score. The score is also adjusted for hallucination risk.</p>
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-xs font-medium text-gray-700">Citation</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-blue-500"
+                style={{ width: `${(kpis.citation_rate * 100).toFixed(0)}%` }}
+              />
+            </div>
+            <span className="w-12 shrink-0 text-right text-xs font-medium text-gray-900">{(kpis.citation_rate * 100).toFixed(0)}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-xs font-medium text-gray-700">Mention</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-blue-500"
+                style={{ width: `${(kpis.mention_rate * 100).toFixed(0)}%` }}
+              />
+            </div>
+            <span className="w-12 shrink-0 text-right text-xs font-medium text-gray-900">{(kpis.mention_rate * 100).toFixed(0)}%</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-xs font-medium text-gray-700">Attribution</span>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-full rounded-full bg-emerald-500"
+                style={{ width: `${(kpis.attribution_accuracy * 100).toFixed(0)}%` }}
+              />
+            </div>
+            <span className="w-12 shrink-0 text-right text-xs font-medium text-gray-900">{(kpis.attribution_accuracy * 100).toFixed(0)}%</span>
+          </div>
+          {Number(kpis.hallucinations) > 0 && (
+            <p className="mt-2 border-t border-gray-100 pt-2 text-xs text-gray-600">
+              Risk factor: {kpis.hallucinations} hallucination{kpis.hallucinations === 1 ? "" : "s"} in this run (reduces score when present).
+            </p>
+          )}
+        </div>
+      </section>
 
       {/* ───────────────────────────────────────── */}
       {/* 3. AI Visibility Growth                  */}
@@ -637,17 +691,19 @@ export default function OverviewPage() {
             <p className="mt-1 text-sm font-medium text-gray-900">
               {lowestCitation ? (
                 <>
-                  Largest visibility gap: <span className="font-semibold">{lowestCitation.domain}</span> (citation {(lowestCitation.latest_rates.citation_rate * 100).toFixed(0)}%).
+                  This domain has the largest visibility gap in the portfolio: <span className="font-semibold">{lowestCitation.domain}</span> (citation {(lowestCitation.latest_rates.citation_rate * 100).toFixed(0)}%).
                   {weakest && weakest.domain !== lowestCitation.domain && (
                     <> Attribution focus: {weakest.domain}.</>
                   )}
                 </>
               ) : (
-                "No domain-level citation gap identified."
+                "No clear citation gap in the portfolio."
               )}
             </p>
             <p className="mt-1 text-xs text-gray-600">
-              Improving this domain lifts portfolio visibility.
+              {lowestCitation
+                ? "Improving citation coverage here is the clearest near-term lever for portfolio visibility."
+                : "Add and evaluate domains to surface opportunities."}
             </p>
           </div>
           <div className="rounded-lg border border-rose-200 bg-rose-50/50 p-4 shadow-sm">
@@ -792,31 +848,32 @@ export default function OverviewPage() {
       {/* ───────────────────────────────────────── */}
       {/* 7. Domain performance                    */}
       {/* Full per-domain table: status, mention, citation, attribution, hallucination, last evaluated. */}
-      {/* Placed lower so narrative and insights are seen first; supports drill-down after story. */}
-      {/* User understands: which domains are strong, which need focus, and exact metrics. */}
+      {/* Tags: Top (strong), Needs focus (priority). No "Improving" — per-domain run-over-run data not available. */}
       {/* Data: domainsData.domains → domainRows (resolveDomainStatus, latest_rates). */}
       {/* ───────────────────────────────────────── */}
       <div className="mt-8">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h2 className="text-lg font-semibold text-gray-900">Domain performance</h2>
-            <p className="text-sm text-gray-500">Strongest domains, at-risk domains, and where to focus.</p>
+            <p className="mt-0.5 text-sm text-gray-500">Per-domain metrics and performance bands. Focus on tags and attribution.</p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-500">
-            <Clock3 className="h-3.5 w-3.5" />
-            Latest completed run: {formatDateTime(latestCompletedRun)}
+            <Clock3 className="h-3.5 w-3.5 shrink-0" />
+            <span>Latest run: {formatDateTime(latestCompletedRun)}</span>
           </div>
         </div>
-        {!domainsLoading && (
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-md bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">Top</span>
-            <span className="rounded-md bg-rose-100 px-2 py-0.5 font-medium text-rose-800">Needs focus</span>
-            <span className="text-gray-500">Tags indicate strongest and weakest current domain performance bands.</span>
+        {!domainsLoading && domainRows.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="font-medium text-gray-500">Performance tags:</span>
+            <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 font-medium text-emerald-800">Top</span>
+            <span className="text-gray-400">strong performance</span>
+            <span className="inline-flex items-center rounded-md bg-rose-100 px-2 py-0.5 font-medium text-rose-800">Needs focus</span>
+            <span className="text-gray-400">priority opportunity</span>
           </div>
         )}
         {!domainsLoading && domainRows.length > 0 && (
           <p className="mb-3 text-sm text-gray-600">
-            Domains tagged <span className="font-medium text-rose-800">Needs focus</span> or with low attribution are the best candidates for improvement.
+            Prioritize domains tagged <span className="font-medium text-rose-800">Needs focus</span> or with low attribution for improvement.
           </p>
         )}
 
@@ -831,18 +888,18 @@ export default function OverviewPage() {
             <p className="mt-1 text-sm text-gray-500">Add domains and run evaluation to unlock domain-level performance insights.</p>
           </div>
         ) : (
-          <div className="card overflow-hidden border border-gray-200">
+          <div className="card overflow-hidden rounded-xl border border-gray-200 shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead>
                   <tr className="sticky top-0 z-10 border-b border-gray-200 bg-gray-50/95">
-                    <th className="px-4 py-3 font-medium text-gray-700">Domain</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Status</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Mention</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Citation</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Attribution</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Hallucination</th>
-                    <th className="px-4 py-3 font-medium text-gray-700">Last evaluated</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Domain</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Status</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Mention</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Citation</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Attribution</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Hallucination</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-600">Evaluated</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -874,12 +931,12 @@ export default function OverviewPage() {
                             <Globe2 className="h-4 w-4 text-gray-400" />
                             <span>{row.domain}</span>
                             {isStrong && (
-                              <span className="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800">
+                              <span className="inline-flex shrink-0 items-center rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-800">
                                 Top
                               </span>
                             )}
                             {isWeak && (
-                              <span className="inline-flex items-center rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-800">
+                              <span className="inline-flex shrink-0 items-center rounded-md bg-rose-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-rose-800">
                                 Needs focus
                               </span>
                             )}
