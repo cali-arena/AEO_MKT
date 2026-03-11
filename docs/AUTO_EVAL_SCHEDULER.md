@@ -86,9 +86,37 @@
 5. Confirm dashboard Overview and Domains show updated data after scheduled evaluations complete; confirm manual “Run evaluation” still works.
 6. To disable: set `AUTO_EVAL_ENABLED=0` (or remove), restart worker.
 
-## 8. Risks / scaling concerns
+## 8. Deploy on VM (Docker Compose)
+
+From the project root on the server (e.g. `~/AEO_MKT`):
+
+```bash
+ssh <server>
+cd ~/AEO_MKT   # or your project path
+git pull
+docker compose -f infra/docker-compose.yml --env-file .env build
+docker compose -f infra/docker-compose.yml --env-file .env up -d
+```
+
+To restart only API and worker after a code/config change:
+
+```bash
+docker compose -f infra/docker-compose.yml --env-file .env up -d --build api worker
+```
+
+Ensure `.env` (or the env file used by the worker) includes `AUTO_EVAL_ENABLED` and `AUTO_EVAL_INTERVAL_MINUTES` if you want the scheduler enabled. Run migration if not already applied: the API container runs `alembic upgrade head` on startup.
+
+**Verify scheduler (when enabled):**
+
+```bash
+docker compose -f infra/docker-compose.yml logs -f worker
+```
+
+Expected log lines: `scheduler_started`, `scheduler_tick`, `scheduler_tick_done`; when jobs are enqueued: `scheduler_jobs_queued`; when domains are skipped: `scheduler_skipped_not_indexed` or `scheduler_skipped_pending`.
+
+## 9. Risks / scaling concerns
 
 - **Single worker:** With one worker process, one scheduler thread runs; lock prevents overlapping ticks. Multiple worker processes each run their own scheduler; all will tick on the same interval and may enqueue jobs for the same tenants. That can mean duplicate eval jobs (same tenant+domains) in the queue. Mitigation: `get_pending_or_running_job_id_for_domain` prevents enqueueing a domain that already has a PENDING/RUNNING job; so the second worker’s tick will skip those domains. If both ticks run at nearly the same time, both could enqueue before either job is claimed; then two jobs for the same tenant (possibly same domains) could exist. Acceptable for MVP; for strict single-job-per-tenant-per-interval, use a single worker or a distributed lock (e.g. DB or Redis) for the tick.
 - **Many tenants / domains:** One tick iterates all tenants and all their domains; if the list is very large, the tick can run long and the next tick will skip (overlap). Eval jobs are queued and processed by existing worker concurrency; no change to job execution.
 - **DB:** `list_tenant_ids()` and `get_domain_index_state` / `get_pending_or_running_job_id_for_domain` add read load every interval; minimal for typical tenant/domain counts.
-- **Migration:** If `016_scheduler_state` is not applied, `set_scheduler_last_tick()` and `get_scheduler_last_tick()` will fail; worker logs `scheduler_state_update_skip` and continues; API returns `last_tick_at: null`; scheduler still runs.
+- **Migration:** If `016_scheduler_state` is not applied, `set_scheduler_last_tick()` and `get_scheduler_last_tick()` may fail; worker logs `scheduler_state_update_skip` and continues; API returns `last_tick_at: null`; scheduler still runs.

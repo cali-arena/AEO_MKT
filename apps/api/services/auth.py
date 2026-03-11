@@ -14,6 +14,7 @@ from starlette.responses import JSONResponse
 BEARER_TENANT_PATTERN = re.compile(r"^Bearer\s+tenant[:=](.+)$", re.IGNORECASE)
 AUTH_EXEMPT_PATH_PREFIXES = (
     "/health",
+    "/scheduler",
     "/docs",
     "/openapi.json",
 )
@@ -75,7 +76,7 @@ def _extract_tenant_and_actor(auth_header: str) -> tuple[str | Literal[False], s
 
 async def auth_middleware(request: Request, call_next):
     """Extract tenant_id from Authorization header. X-Tenant-Debug allowed only when ENV=test and ENABLE_TEST_TENANT_HEADER=1.
-    Never reads tenant_id from query params or body. /health is exempt (no auth required). OPTIONS (CORS preflight) must pass so the browser gets CORS headers."""
+    Never reads tenant_id from query params or body. /health and /scheduler are exempt (no auth required). OPTIONS (CORS preflight) must pass so the browser gets CORS headers."""
 
     path = request.url.path.rstrip("/") or "/"
     if request.method == "OPTIONS":
