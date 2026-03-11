@@ -12,7 +12,17 @@ from fastapi.responses import JSONResponse
 logging.basicConfig(level=logging.INFO)
 
 from apps.api.db import ensure_tables
-from apps.api.routes import answer, domains, eval as eval_routes, health, leakage, metrics, monitor, retrieve
+from apps.api.routes import (
+    answer,
+    domains,
+    eval as eval_routes,
+    health,
+    leakage,
+    metrics,
+    monitor,
+    retrieve,
+    scheduler,
+)
 from apps.api.services.auth import auth_middleware
 
 # CORS: allow explicit trusted origins + Vercel preview domains.
@@ -96,6 +106,7 @@ app.include_router(eval_routes.router, prefix="/eval", tags=["eval"])
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 app.include_router(monitor.router, prefix="/monitor", tags=["monitor"])
 app.include_router(leakage.router, tags=["leakage"])
+app.include_router(scheduler.router, prefix="/scheduler", tags=["scheduler"])
 
 if (os.getenv("ENV") or os.getenv("ENVIRONMENT") or "").lower() == "test":
     from apps.api.routes import debug

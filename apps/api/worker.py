@@ -26,8 +26,9 @@ from apps.api.services.domain_ingest_jobs import (
 )
 from apps.api.services.domain_jobs import (
     claim_domain_eval_job,
-    enqueue_domain_eval_job,
+    enqueue_domain_eval_job_if_absent,
     finish_domain_eval_job,
+    get_pending_or_running_job_id_for_domain,
 )
 from apps.api.services.domain_orchestration_jobs import (
     claim_domain_eval_orchestration_job,
@@ -42,13 +43,21 @@ from apps.api.services.domain_orchestrate_jobs import (
     update_orchestrate_progress,
 )
 from apps.api.services.eval_runner import run_eval_sync
-from apps.api.services.repo import get_domain_index_state, list_eval_domains, upsert_domain_index_state
+from apps.api.services.repo import (
+    get_domain_index_state,
+    list_eval_domains,
+    list_tenant_ids,
+    set_scheduler_last_tick,
+    upsert_domain_index_state,
+)
 from apps.api.services.domain_index_validation import count_ac_embeddings, count_sections
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("domain-worker")
 
 _STOP = threading.Event()
+_SCHEDULER_LOCK = threading.Lock()
+_SCHEDULER_CYCLE = 0
 
 
 def _worker_id() -> str:
@@ -68,6 +77,24 @@ def _to_iso(value) -> str | None:
 def _on_signal(signum, _frame) -> None:
     logger.info("worker_signal signum=%s stopping=1", signum)
     _STOP.set()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = (os.getenv(name) or "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes")
+
+
+def _env_int_minutes(name: str, default: int = 5, minimum: int = 1) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return max(minimum, int(raw))
+    except ValueError:
+        logger.warning("scheduler_config_invalid key=%s value=%s fallback=%s", name, raw, default)
+        return default
 
 
 def _job_domains(job: dict) -> list[str]:
@@ -450,13 +477,14 @@ def _process_orchestration_job(orch_job: dict) -> None:
             all_ready = False
             break
     if all_ready:
-        eval_job = enqueue_domain_eval_job(tenant_id, domains)
+        eval_job, created = enqueue_domain_eval_job_if_absent(tenant_id, domains)
         finish_domain_eval_orchestration_job(job_id, "DONE", eval_job_id=eval_job["id"])
         logger.info(
-            "orchestration_done job_id=%s tenant_id=%s eval_job_id=%s domain_count=%s",
+            "orchestration_done job_id=%s tenant_id=%s eval_job_id=%s created=%s domain_count=%s",
             job_id,
             tenant_id,
             eval_job["id"],
+            created,
             len(domains),
         )
     else:
@@ -467,6 +495,161 @@ def _process_orchestration_job(orch_job: dict) -> None:
             tenant_id,
             len(domains),
         )
+
+
+def _auto_eval_tick() -> None:
+    """
+    One tick of the scheduled auto-evaluation: for each tenant with monitored domains,
+    enqueue one domain_eval_job for domains that are indexed and not already PENDING/RUNNING.
+    Skips overlap if the previous tick is still running.
+    """
+    if not _SCHEDULER_LOCK.acquire(blocking=False):
+        logger.info("scheduler_skip_overlap previous_cycle_still_running")
+        return
+    try:
+        global _SCHEDULER_CYCLE
+        _SCHEDULER_CYCLE += 1
+        cycle_id = _SCHEDULER_CYCLE
+        cycle_started = datetime.now(timezone.utc)
+        enabled = _env_bool("AUTO_EVAL_ENABLED", default=False)
+        if not enabled:
+            logger.debug("scheduler_tick_skip_disabled cycle_id=%s", cycle_id)
+            return
+        interval_min = _env_int_minutes("AUTO_EVAL_INTERVAL_MINUTES", default=5, minimum=1)
+        tenants_raw = (os.getenv("AUTO_EVAL_TENANTS") or "").strip()
+        if tenants_raw:
+            tenant_ids = [t.strip() for t in tenants_raw.split(",") if t.strip()]
+        else:
+            try:
+                tenant_ids = list_tenant_ids()
+            except ProgrammingError as exc:
+                logger.warning("scheduler_db_not_ready error=%s", str(exc))
+                return
+        if not tenant_ids:
+            logger.info("scheduler_tick cycle_id=%s tenant_count=0 reason=no_tenants", cycle_id)
+            return
+        logger.info(
+            "scheduler_tick cycle_id=%s tenant_count=%s interval_minutes=%s",
+            cycle_id,
+            len(tenant_ids),
+            interval_min,
+        )
+        total_queued = 0
+        total_eligible = 0
+        total_skipped_not_indexed = 0
+        total_skipped_pending = 0
+        for tenant_id in tenant_ids:
+            try:
+                domains = list_eval_domains(tenant_id)
+            except Exception as exc:
+                logger.warning(
+                    "scheduler_tenant_error cycle_id=%s tenant_id=%s error=%s",
+                    cycle_id,
+                    tenant_id,
+                    str(exc),
+                )
+                continue
+            domains = list(dict.fromkeys([d.strip().lower() for d in domains if d and d.strip()]))
+            if not domains:
+                logger.info("scheduler_tenant cycle_id=%s tenant_id=%s domains_monitored=0", cycle_id, tenant_id)
+                continue
+            eligible: list[str] = []
+            skipped_not_indexed: list[str] = []
+            skipped_pending: list[str] = []
+            for domain in domains:
+                state = get_domain_index_state(tenant_id, domain)
+                desired = compute_desired_index_version(tenant_id, domain)
+                if not is_index_up_to_date(state, desired):
+                    skipped_not_indexed.append(domain)
+                    continue
+                if get_pending_or_running_job_id_for_domain(tenant_id, domain):
+                    skipped_pending.append(domain)
+                    continue
+                eligible.append(domain)
+            if skipped_not_indexed:
+                logger.info(
+                    "scheduler_skipped_not_indexed cycle_id=%s tenant_id=%s count=%s domains=%s",
+                    cycle_id,
+                    tenant_id,
+                    len(skipped_not_indexed),
+                    skipped_not_indexed[:10],
+                )
+            if skipped_pending:
+                logger.info(
+                    "scheduler_skipped_pending cycle_id=%s tenant_id=%s count=%s domains=%s",
+                    cycle_id,
+                    tenant_id,
+                    len(skipped_pending),
+                    skipped_pending[:10],
+                )
+            total_skipped_not_indexed += len(skipped_not_indexed)
+            total_skipped_pending += len(skipped_pending)
+            if not eligible:
+                logger.info(
+                    "scheduler_tenant cycle_id=%s tenant_id=%s domains_monitored=%s eligible=0",
+                    cycle_id,
+                    tenant_id,
+                    len(domains),
+                )
+                continue
+            total_eligible += len(eligible)
+            try:
+                job, created = enqueue_domain_eval_job_if_absent(tenant_id, eligible)
+                job_id = str(job["id"])
+                if created:
+                    total_queued += 1
+                    logger.info(
+                        "scheduler_jobs_queued cycle_id=%s tenant_id=%s eval_job_id=%s domain_count=%s domains=%s",
+                        cycle_id,
+                        tenant_id,
+                        job_id,
+                        len(eligible),
+                        eligible[:15],
+                    )
+                else:
+                    logger.info(
+                        "scheduler_enqueue_dedup cycle_id=%s tenant_id=%s eval_job_id=%s domain_count=%s",
+                        cycle_id,
+                        tenant_id,
+                        job_id,
+                        len(eligible),
+                    )
+            except Exception as exc:
+                logger.exception(
+                    "scheduler_enqueue_failed cycle_id=%s tenant_id=%s domain_count=%s error=%s",
+                    cycle_id,
+                    tenant_id,
+                    len(eligible),
+                    str(exc),
+                )
+        duration_sec = (datetime.now(timezone.utc) - cycle_started).total_seconds()
+        logger.info(
+            "scheduler_tick_done cycle_id=%s tenant_count=%s eligible=%s skipped_not_indexed=%s skipped_pending=%s jobs_queued=%s duration_sec=%.2f",
+            cycle_id,
+            len(tenant_ids),
+            total_eligible,
+            total_skipped_not_indexed,
+            total_skipped_pending,
+            total_queued,
+            duration_sec,
+        )
+        try:
+            set_scheduler_last_tick()
+        except Exception as exc:
+            logger.debug("scheduler_state_update_skip cycle_id=%s error=%s", cycle_id, str(exc))
+    finally:
+        _SCHEDULER_LOCK.release()
+
+
+def _scheduler_loop(interval_seconds: float) -> None:
+    """Daemon thread: run _auto_eval_tick immediately, then every interval_seconds until _STOP."""
+    while not _STOP.is_set():
+        try:
+            _auto_eval_tick()
+        except Exception as exc:
+            logger.exception("scheduler_tick_error error=%s", str(exc))
+        if _STOP.wait(timeout=interval_seconds):
+            break
 
 
 def main() -> None:
@@ -486,6 +669,23 @@ def main() -> None:
         concurrency,
         lease_seconds,
     )
+
+    auto_eval_enabled = _env_bool("AUTO_EVAL_ENABLED", default=False)
+    if auto_eval_enabled:
+        interval_min = _env_int_minutes("AUTO_EVAL_INTERVAL_MINUTES", default=5, minimum=1)
+        interval_seconds = float(interval_min * 60)
+        scheduler_thread = threading.Thread(
+            target=_scheduler_loop,
+            args=(interval_seconds,),
+            name="auto-eval-scheduler",
+            daemon=True,
+        )
+        scheduler_thread.start()
+        logger.info(
+            "scheduler_started interval_minutes=%s interval_seconds=%.0f",
+            interval_min,
+            interval_seconds,
+        )
 
     while not _STOP.is_set():
         picked = 0

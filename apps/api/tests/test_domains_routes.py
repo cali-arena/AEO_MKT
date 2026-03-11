@@ -138,8 +138,11 @@ def test_evaluate_domains_all_done_returns_orchestration_job_and_domains_state()
             "already_enqueued": False,
         },
     ), patch(
-        "apps.api.routes.domains.enqueue_domain_eval_job",
-        return_value={"id": eval_job_id, "tenant_id": tenant, "domains": ["one.com"], "status": "PENDING"},
+        "apps.api.routes.domains.enqueue_domain_eval_job_if_absent",
+        return_value=(
+            {"id": eval_job_id, "tenant_id": tenant, "domains": ["one.com"], "status": "PENDING"},
+            True,
+        ),
     ), patch(
         "apps.api.routes.domains.get_domain_eval_job",
         side_effect=lambda t, jid: (

@@ -1253,6 +1253,33 @@ def list_eval_domains(tenant_id: str | None) -> list[str]:
         return list(session.scalars(stmt).all())
 
 
+def list_tenant_ids() -> list[str]:
+    """Return distinct tenant_id from eval_domain (for auto-eval scheduler)."""
+    stmt = select(EvalDomain.tenant_id).distinct().order_by(EvalDomain.tenant_id)
+    with get_db() as session:
+        return list(session.scalars(stmt).all())
+
+
+def get_scheduler_last_tick() -> datetime | None:
+    """Return last_tick_at from scheduler_state (single row id=1). Used by GET /scheduler/status."""
+    stmt = text("SELECT last_tick_at FROM scheduler_state WHERE id = 1")
+    with get_db() as session:
+        row = session.execute(stmt).first()
+    if row is None or row[0] is None:
+        return None
+    val = row[0]
+    return val if isinstance(val, datetime) else None
+
+
+def set_scheduler_last_tick() -> None:
+    """Set last_tick_at = now() in scheduler_state. Called by worker after each auto-eval tick."""
+    stmt = text(
+        "UPDATE scheduler_state SET last_tick_at = now(), updated_at = now() WHERE id = 1"
+    )
+    with get_db() as session:
+        session.execute(stmt)
+
+
 def delete_domain_data(tenant_id: str | None, domain: str) -> None:
     """Delete all rows for this tenant+domain in dependency order. Uses one transaction; rollback on any failure.
 
@@ -1586,9 +1613,9 @@ def get_latest_domain_eval_snapshots(tenant_id: str | None) -> dict[str, dict[st
 
 
 def get_domain_aggregates_from_eval_result(tenant_id: str | None) -> list[dict[str, Any]]:
-    """Return per-domain aggregates from eval_domain LEFT JOIN eval_result for tenant.
+    """Return per-domain aggregates scoped to each domain's latest completed run.
     Includes all domains from eval_domain plus any domain that has eval_result rows.
-    Rates are 0..1 floats; total_results is count of eval_result rows."""
+    Rates are 0..1 floats; total_results is count of rows within the latest run for that domain."""
     tenant_id = require_tenant_id(tenant_id)
     stmt = text(
         """
@@ -1596,9 +1623,21 @@ def get_domain_aggregates_from_eval_result(tenant_id: str | None) -> list[dict[s
             SELECT domain, tenant_id FROM eval_domain WHERE tenant_id = :tenant_id
             UNION
             SELECT DISTINCT domain, tenant_id FROM eval_result WHERE tenant_id = :tenant_id
+        ),
+        latest_run AS (
+            SELECT DISTINCT ON (er.domain)
+                   er.domain,
+                   er.run_id AS last_run_id,
+                   r.created_at AS last_created_at
+            FROM eval_result er
+            JOIN eval_run r ON r.id = er.run_id AND r.tenant_id = er.tenant_id
+            WHERE er.tenant_id = :tenant_id
+            ORDER BY er.domain, r.created_at DESC, er.id DESC
         )
         SELECT
             d.domain,
+            lr.last_run_id,
+            lr.last_created_at,
             COUNT(r.id)::int AS total_results,
             COALESCE(SUM(CASE WHEN r.refused THEN 1 ELSE 0 END), 0)::int AS refused_count,
             COALESCE(COUNT(r.id) - SUM(CASE WHEN r.refused THEN 1 ELSE 0 END), 0)::int AS ok_count,
@@ -1606,20 +1645,16 @@ def get_domain_aggregates_from_eval_result(tenant_id: str | None) -> list[dict[s
             COALESCE(AVG(CASE WHEN r.citation_ok THEN 1 ELSE 0 END)::float, 0.0) AS citation_rate,
             COALESCE(AVG(CASE WHEN r.attribution_ok THEN 1 ELSE 0 END)::float, 0.0) AS attribution_rate,
             COALESCE(AVG(CASE WHEN r.hallucination_flag THEN 1 ELSE 0 END)::float, 0.0) AS hallucination_rate,
-            STRING_AGG(DISTINCT NULLIF(TRIM(r.refusal_reason), ''), '; ') AS refusal_reason_summary,
-            (SELECT r2.run_id FROM eval_result r2
-             WHERE r2.tenant_id = d.tenant_id AND r2.domain = d.domain
-             ORDER BY r2.id DESC LIMIT 1) AS last_run_id,
-            (SELECT r3.created_at FROM eval_run r3
-             WHERE r3.tenant_id = d.tenant_id AND r3.id = (
-                 SELECT r2.run_id FROM eval_result r2
-                 WHERE r2.tenant_id = d.tenant_id AND r2.domain = d.domain
-                 ORDER BY r2.id DESC LIMIT 1
-             ) LIMIT 1) AS last_created_at
+            STRING_AGG(DISTINCT NULLIF(TRIM(r.refusal_reason), ''), '; ') AS refusal_reason_summary
         FROM domains d
-        LEFT JOIN eval_result r ON r.domain = d.domain AND r.tenant_id = d.tenant_id
+        LEFT JOIN latest_run lr
+          ON lr.domain = d.domain
+        LEFT JOIN eval_result r
+          ON r.domain = d.domain
+         AND r.tenant_id = d.tenant_id
+         AND r.run_id = lr.last_run_id
         WHERE d.tenant_id = :tenant_id
-        GROUP BY d.domain, d.tenant_id
+        GROUP BY d.domain, d.tenant_id, lr.last_run_id, lr.last_created_at
         ORDER BY d.domain
         """
     )

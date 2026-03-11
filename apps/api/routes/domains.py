@@ -20,7 +20,7 @@ from apps.api.services.domain_ingest_jobs import (
 )
 from apps.api.services.domain_jobs import (
     clear_domain_eval_jobs_for_tenant,
-    enqueue_domain_eval_job,
+    enqueue_domain_eval_job_if_absent,
     get_domain_eval_job,
 )
 from apps.api.services.domain_status import get_domains_with_status
@@ -561,14 +561,15 @@ async def evaluate_domains(
 
     if all_done and normalized:
         # All domains indexed: create real domain_eval_job row so worker can run eval; return its id
-        eval_job = enqueue_domain_eval_job(tenant, normalized)
+        eval_job, created = enqueue_domain_eval_job_if_absent(tenant, normalized)
         eval_job_id = str(eval_job["id"])
         job_id = eval_job_id
         status_url = f"/tenants/{tenant}/jobs/{eval_job_id}"
         logger.info(
-            "domains_evaluate_eval_job_created tenant_id=%s eval_job_id=%s domain_count=%s domains=%s",
+            "domains_evaluate_eval_job_selected tenant_id=%s eval_job_id=%s created=%s domain_count=%s domains=%s",
             tenant,
             eval_job_id,
+            created,
             len(normalized),
             normalized,
         )

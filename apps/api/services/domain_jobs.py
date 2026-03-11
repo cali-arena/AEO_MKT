@@ -81,6 +81,74 @@ def enqueue_domain_eval_job(tenant_id: str | None, domains: Sequence[str] | None
     return _row_to_job(row)
 
 
+def enqueue_domain_eval_job_if_absent(
+    tenant_id: str | None,
+    domains: Sequence[str] | None,
+) -> tuple[dict[str, Any], bool]:
+    """
+    Enqueue a domain eval job unless an overlapping PENDING/RUNNING job already exists.
+    Returns (job, created):
+    - created=True: inserted a new PENDING job
+    - created=False: returned existing overlapping active job
+    """
+    tenant_id = require_tenant_id(tenant_id)
+    normalized = _normalize_domains(domains)
+    total = len(normalized) if normalized else 1
+    job_id = uuid.uuid4()
+    lock_key = f"domain_eval_enqueue:{tenant_id}"
+
+    select_overlap_stmt = text(
+        """
+        SELECT id, tenant_id, domains, status, total, completed, error_message, error_code, run_id,
+               created_at, started_at, finished_at, worker_id
+        FROM domain_eval_job
+        WHERE tenant_id = :tenant_id
+          AND status IN ('PENDING', 'RUNNING')
+          AND (
+            jsonb_array_length(CAST(:domains_json AS jsonb)) = 0
+            OR domains ?| CAST(:domains AS text[])
+          )
+        ORDER BY created_at DESC
+        LIMIT 1
+        """
+    )
+    insert_stmt = text(
+        """
+        INSERT INTO domain_eval_job (id, tenant_id, domains, status, total, completed)
+        VALUES (:job_id, :tenant_id, CAST(:domains_json AS jsonb), 'PENDING', :total, 0)
+        RETURNING id, tenant_id, domains, status, total, completed, error_message, error_code, run_id,
+                  created_at, started_at, finished_at, worker_id
+        """
+    )
+    with get_db() as session:
+        session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:lock_key)::bigint)"),
+            {"lock_key": lock_key},
+        )
+        overlap = session.execute(
+            select_overlap_stmt,
+            {
+                "tenant_id": tenant_id,
+                "domains_json": json.dumps(normalized),
+                "domains": normalized,
+            },
+        ).mappings().first()
+        if overlap is not None:
+            return _row_to_job(overlap), False
+        inserted = session.execute(
+            insert_stmt,
+            {
+                "job_id": str(job_id),
+                "tenant_id": tenant_id,
+                "domains_json": json.dumps(normalized),
+                "total": total,
+            },
+        ).mappings().first()
+    if inserted is None:
+        raise RuntimeError("failed to enqueue domain evaluation job")
+    return _row_to_job(inserted), True
+
+
 def claim_domain_eval_job(worker_id: str, lease_seconds: int) -> dict[str, Any] | None:
     stmt = text(
         """

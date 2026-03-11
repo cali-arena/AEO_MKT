@@ -228,7 +228,7 @@ export default function DomainsPage() {
   }, [tenantId, activeJobId, refresh]);
 
   useEffect(() => {
-    if (!tenantId || !hasInFlightRows) return;
+    if (!tenantId || !hasInFlightRows || activeJobId) return;
     let stopped = false;
     const poll = async () => {
       if (stopped) return;
@@ -239,7 +239,7 @@ export default function DomainsPage() {
       stopped = true;
       window.clearInterval(interval);
     };
-  }, [tenantId, hasInFlightRows, refresh]);
+  }, [tenantId, hasInFlightRows, activeJobId, refresh]);
 
   const startEvaluation = useCallback(
     async (domains: string[], successMessage: string) => {
