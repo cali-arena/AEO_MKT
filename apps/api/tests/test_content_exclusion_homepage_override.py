@@ -41,12 +41,13 @@ def _make_fetch_result(html: str, final_url: str) -> dict:
 
 
 def test_override_registered_homepage_root_same_domain() -> None:
-    """Override applies for requested domain homepage (root path) when reason is ui_form_heuristic."""
+    """Override applies when domain is in tenant_registered, root path, ui_form_heuristic."""
     assert _should_override_ui_form_for_registered_homepage(
         "adaptedtech.com.br",
         "adaptedtech.com.br",
         "https://adaptedtech.com.br/",
         "ui_form_heuristic:text_len=100,tag_hits=15,density=0.05",
+        ["adaptedtech.com.br"],
     ) is True
 
 
@@ -57,6 +58,7 @@ def test_no_override_quote_subdomain() -> None:
         "quote.example.com",
         "https://quote.example.com/",
         "ui_form_heuristic:text_len=100,tag_hits=15,density=0.05",
+        ["quote.example.com"],
     ) is False
 
 
@@ -67,6 +69,7 @@ def test_no_override_non_root_path() -> None:
         "adaptedtech.com.br",
         "https://adaptedtech.com.br/contact",
         "ui_form_heuristic:text_len=100,tag_hits=15,density=0.05",
+        ["adaptedtech.com.br"],
     ) is False
 
 
@@ -77,6 +80,25 @@ def test_no_override_other_reason() -> None:
         "adaptedtech.com.br",
         "https://adaptedtech.com.br/",
         "deny_path_prefix:/quote",
+        ["adaptedtech.com.br"],
+    ) is False
+
+
+def test_no_override_domain_not_in_tenant_registered() -> None:
+    """No override when domain is not in tenant_registered_domains (e.g. static-only allowed)."""
+    assert _should_override_ui_form_for_registered_homepage(
+        "adaptedtech.com.br",
+        "adaptedtech.com.br",
+        "https://adaptedtech.com.br/",
+        "ui_form_heuristic:text_len=100,tag_hits=15,density=0.05",
+        [],  # domain not in tenant registered
+    ) is False
+    assert _should_override_ui_form_for_registered_homepage(
+        "adaptedtech.com.br",
+        "adaptedtech.com.br",
+        "https://adaptedtech.com.br/",
+        "ui_form_heuristic:text_len=100,tag_hits=15,density=0.05",
+        ["other.com", "another.org"],  # different domains
     ) is False
 
 
@@ -85,14 +107,19 @@ def test_registered_homepage_form_heavy_not_excluded() -> None:
     """Main homepage of requested domain that is CTA/form heavy should still ingest (override)."""
     tenant_id = "tenant_homepage_override"
     url = "https://adaptedtech.com.br/"
-    # Normalized text from extraction will be short; use HTML that yields short text
+    # Ensure override can apply: domain must be in tenant_registered
+    effective = {"adaptedtech.com.br", "coasttocoastmovers.com"}
+    static = ["coasttocoastmovers.com"]
+    tenant_registered = ["adaptedtech.com.br"]
     fetch_result = _make_fetch_result(FORM_HEAVY_HTML, url)
-    # Ensure heuristic would exclude: short text + form-heavy
     _, _, details = ui_flow_heuristic(FORM_HEAVY_HTML, SHORT_BODY_TEXT)
     assert details["text_len"] < 600
     assert details["tag_hits"] >= 12
 
-    with patch("apps.api.services.pipeline._fetch", return_value=fetch_result):
+    with patch("apps.api.services.pipeline._fetch", return_value=fetch_result), patch(
+        "apps.api.services.pipeline.get_effective_allowed_domains",
+        return_value=(effective, static, tenant_registered),
+    ):
         result = run_day1_pipeline(tenant_id, url)
 
     assert result.get("excluded") is not True, (

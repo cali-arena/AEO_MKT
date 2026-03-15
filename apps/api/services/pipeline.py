@@ -57,17 +57,26 @@ def _should_override_ui_form_for_registered_homepage(
     final_domain: str,
     final_canonical: str,
     reason: str,
+    tenant_registered_domains: list[str] | set[str],
 ) -> bool:
     """
     True if we should allow the page despite ui_form_heuristic (registered domain homepage).
-    Does not override for quote/form subdomains or non-root paths.
+    Override only when ALL are true:
+    1. page belongs to requested monitored domain (same host)
+    2. URL is root homepage (/ or empty path)
+    3. domain is in tenant_registered_domains
+    Does not override for quote/form subdomains.
     """
     if not reason.startswith("ui_form_heuristic"):
         return False
     path = (urlparse(final_canonical).path or "/").strip().rstrip("/") or "/"
     if path not in ("", "/"):
         return False
-    if normalize_host(requested_domain) != normalize_host(final_domain):
+    domain_norm = normalize_host(final_domain)
+    if normalize_host(requested_domain) != domain_norm:
+        return False
+    registered_norm = {normalize_host(d) for d in tenant_registered_domains if d}
+    if domain_norm not in registered_norm:
         return False
     first_label = (final_domain.split(".")[0] if final_domain else "").lower()
     if first_label in DENY_SUBDOMAIN_LABELS:
@@ -185,7 +194,7 @@ def run_day1_pipeline(
     requested_domain = domain
     page_url = final_url
     override_for_registered_homepage = _should_override_ui_form_for_registered_homepage(
-        requested_domain, final_domain, final_canonical, reason
+        requested_domain, final_domain, final_canonical, reason, tenant_registered
     )
     if override_for_registered_homepage:
         excluded = False
