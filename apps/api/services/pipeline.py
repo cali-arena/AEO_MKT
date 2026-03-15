@@ -5,6 +5,7 @@ import logging
 import sys
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from apps.api.services.crawl import fetch_html_with_meta
 
@@ -46,6 +47,32 @@ from apps.api.services.sectionize import sectionize_and_persist
 from apps.api.services.url_utils import canonicalize_url
 
 logger = logging.getLogger(__name__)
+
+# Subdomain labels that are always treated as quote/form; no homepage override.
+DENY_SUBDOMAIN_LABELS = {"quote", "getquote", "booking", "estimate", "flow", "wizard", "get-a-quote"}
+
+
+def _should_override_ui_form_for_registered_homepage(
+    requested_domain: str,
+    final_domain: str,
+    final_canonical: str,
+    reason: str,
+) -> bool:
+    """
+    True if we should allow the page despite ui_form_heuristic (registered domain homepage).
+    Does not override for quote/form subdomains or non-root paths.
+    """
+    if not reason.startswith("ui_form_heuristic"):
+        return False
+    path = (urlparse(final_canonical).path or "/").strip().rstrip("/") or "/"
+    if path not in ("", "/"):
+        return False
+    if normalize_host(requested_domain) != normalize_host(final_domain):
+        return False
+    first_label = (final_domain.split(".")[0] if final_domain else "").lower()
+    if first_label in DENY_SUBDOMAIN_LABELS:
+        return False
+    return True
 
 
 def _store_excluded_raw_page(
@@ -153,8 +180,26 @@ def run_day1_pipeline(
     ch = content_hash(normalized)
     title = extract_title(html)
 
-    # 5) Full exclusion (with html/text)
-    excluded, reason, _ = should_exclude(final_url, html=html, text=normalized)
+    # 5) Full exclusion (with html/text); allow registered domain homepage through ui_form_heuristic
+    excluded, reason, _, heuristic_info = should_exclude(final_url, html=html, text=normalized)
+    requested_domain = domain
+    page_url = final_url
+    override_for_registered_homepage = _should_override_ui_form_for_registered_homepage(
+        requested_domain, final_domain, final_canonical, reason
+    )
+    if override_for_registered_homepage:
+        excluded = False
+
+    if heuristic_info is not None:
+        logger.info(
+            "content_exclusion requested_domain=%s page_url=%s text_len=%s tag_hits=%s density=%s override_for_registered_homepage=%s",
+            requested_domain,
+            page_url,
+            heuristic_info.get("text_len"),
+            heuristic_info.get("tag_hits"),
+            heuristic_info.get("density"),
+            override_for_registered_homepage,
+        )
     if excluded:
         logger.info("Day1 pipeline excluded by content url=%s reason=%s", url, reason)
         _store_excluded_raw_page(

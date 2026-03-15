@@ -38,11 +38,12 @@ FORM_TAG_PATTERNS = [
 ]
 
 
-def ui_flow_heuristic(html: str, text: str) -> tuple[bool, str]:
+def ui_flow_heuristic(html: str, text: str) -> tuple[bool, str, dict]:
     """
     Form-UI heuristic: short text + form-heavy HTML -> likely UI flow page.
-    Returns (excluded, reason).
+    Returns (excluded, reason, details).
     reason format: "ui_form_heuristic:text_len=...,tag_hits=...,density=..."
+    details: {"text_len": int, "tag_hits": int, "density": float} for logging.
     """
     text_len = len(text.strip())
     html_lower = html.lower()
@@ -61,23 +62,25 @@ def ui_flow_heuristic(html: str, text: str) -> tuple[bool, str]:
         excluded = True
 
     reason = f"ui_form_heuristic:text_len={text_len},tag_hits={tag_hits},density={density_str}"
-    return (excluded, reason)
+    details = {"text_len": text_len, "tag_hits": tag_hits, "density": form_density}
+    return (excluded, reason, details)
 
 
 def should_exclude(
     url: str,
     html: str | None = None,
     text: str | None = None,
-) -> tuple[bool, str, str]:
+) -> tuple[bool, str, str, dict | None]:
     """
-    Returns (excluded, reason, page_type).
+    Returns (excluded, reason, page_type, heuristic_info).
     page_type is "ui_flow_excluded" when excluded, else "info_static".
+    heuristic_info is None unless form-UI heuristic ran; then {"text_len", "tag_hits", "density"}.
     If html and text are provided, runs form-UI heuristic after URL rules pass.
     """
     try:
         parsed = urlparse(url)
     except Exception as e:
-        return True, f"invalid_url:{e!r}", PAGE_TYPE_EXCLUDED
+        return True, f"invalid_url:{e!r}", PAGE_TYPE_EXCLUDED, None
 
     path = (parsed.path or "/").lower()
     query = (parsed.query or "").lower()
@@ -85,12 +88,12 @@ def should_exclude(
     # Deny path prefix
     for prefix in DENY_PATH_PREFIXES:
         if path.startswith(prefix.lower()):
-            return True, f"deny_path_prefix:{prefix}", PAGE_TYPE_EXCLUDED
+            return True, f"deny_path_prefix:{prefix}", PAGE_TYPE_EXCLUDED, None
 
     # Deny path contains
     for substr in DENY_PATH_SUBSTRINGS:
         if substr in path:
-            return True, f"deny_path_contains:{substr}", PAGE_TYPE_EXCLUDED
+            return True, f"deny_path_contains:{substr}", PAGE_TYPE_EXCLUDED, None
 
     # Deny query keys (lowercase)
     qs = parse_qs(parsed.query, keep_blank_values=True)
@@ -99,18 +102,19 @@ def should_exclude(
     found = qkeys_lower & deny_keys_lower
     if found:
         key = sorted(found)[0]
-        return True, f"deny_query_key:{key}", PAGE_TYPE_EXCLUDED
+        return True, f"deny_query_key:{key}", PAGE_TYPE_EXCLUDED, None
 
     # Deny query key prefix (utm_)
     for qk in qkeys_lower:
         for prefix in DENY_QUERY_PREFIXES:
             if qk.startswith(prefix.lower()):
-                return True, f"deny_query_prefix:{qk}", PAGE_TYPE_EXCLUDED
+                return True, f"deny_query_prefix:{qk}", PAGE_TYPE_EXCLUDED, None
 
     # Form-UI heuristic when html and text provided
     if html is not None and text is not None:
-        excluded, reason = ui_flow_heuristic(html, text)
+        excluded, reason, details = ui_flow_heuristic(html, text)
         if excluded:
-            return True, reason, PAGE_TYPE_EXCLUDED
+            return True, reason, PAGE_TYPE_EXCLUDED, details
+        return False, "", PAGE_TYPE_ALLOWED, details
 
-    return False, "", PAGE_TYPE_ALLOWED
+    return False, "", PAGE_TYPE_ALLOWED, None
