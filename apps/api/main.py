@@ -28,6 +28,8 @@ from apps.api.services.auth import auth_middleware
 # CORS: allow explicit trusted origins + Vercel preview domains.
 # Env: CORS_ALLOW_ORIGINS="https://dashboard.citarionai.com,https://your-app.vercel.app"
 CORS_DEFAULT_ORIGINS = [
+    "https://citarionai.com",
+    "https://www.citarionai.com",
     "https://dashboard.citarionai.com",
     "http://localhost:3000",
     "http://localhost:8501",
