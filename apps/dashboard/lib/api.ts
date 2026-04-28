@@ -5,6 +5,7 @@
  */
 
 import { getTokenClient, getTokenServer } from "./auth";
+import type { CrawlerEvalResult } from "./types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/$/, "");
 const DEFAULT_AUTH_TOKEN = process.env.NEXT_PUBLIC_API_AUTH_TOKEN || "tenant:A";
@@ -118,8 +119,6 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
 // ---------------------------------------------------------------------------
 // Crawler API — no auth required, uses /crawler/evaluate path
 // ---------------------------------------------------------------------------
-import type { CrawlerEvalResult } from "./types";
-
 export async function crawlerEvaluate(url: string): Promise<CrawlerEvalResult> {
   return apiFetch<CrawlerEvalResult>("/crawler/evaluate", {
     method: "POST",
