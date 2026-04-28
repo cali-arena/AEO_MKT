@@ -878,7 +878,7 @@ export default function DomainsPage() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-sm font-medium text-gray-700">{aeoResult.domain}</span>
-                <span className={}>
+                <span className={`rounded-md px-2 py-0.5 text-sm font-bold ${gradeClass(aeoResult.grade)}`}>
                   Grade {aeoResult.grade}
                 </span>
                 <span className="text-sm text-gray-600">{aeoResult.score}/{aeoResult.max_score} pts</span>
