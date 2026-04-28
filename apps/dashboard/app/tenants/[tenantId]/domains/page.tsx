@@ -7,9 +7,10 @@ import { motion } from "framer-motion";
 
 import { DomainDrawer } from "@/components/domains/DomainDrawer";
 import { MetricBadge } from "@/components/ui/MetricBadge";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, crawlerEvaluate } from "@/lib/api";
 import { resolveDomainStatus, resolvedStatusBadgeClass } from "@/lib/domainStatus";
 import type {
+  CrawlerEvalResult,
   DomainJobStatusResponse,
   DomainListItem,
   DomainsCreateResponse,
@@ -52,6 +53,14 @@ function normalizeDomain(raw: string): string | null {
 }
 
 const BLOCKED_PREFIXES = ["quote.", "app.", "secure.", "form."];
+
+function gradeClass(grade: string): string {
+  if (grade === "A") return "bg-emerald-100 text-emerald-800";
+  if (grade === "B") return "bg-blue-100 text-blue-800";
+  if (grade === "C") return "bg-amber-100 text-amber-800";
+  if (grade === "D") return "bg-orange-100 text-orange-800";
+  return "bg-rose-100 text-rose-800";
+}
 
 function isBlockedDomain(domain: string): boolean {
   const d = domain.trim().toLowerCase();
@@ -128,6 +137,9 @@ export default function DomainsPage() {
   const [deletingDomain, setDeletingDomain] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [lastFetchedAt, setLastFetchedAt] = useState<number | null>(null);
+  const [aeoResult, setAeoResult] = useState<CrawlerEvalResult | null>(null);
+  const [aeoLoading, setAeoLoading] = useState<string | null>(null);
+  const [aeoError, setAeoError] = useState<string | null>(null);
   const hasInFlightRows = useMemo(
     () =>
       (data?.domains ?? []).some((row) => {
@@ -318,6 +330,20 @@ export default function DomainsPage() {
     setToast({ type, text });
     const t = window.setTimeout(() => setToast(null), 4000);
     return () => window.clearTimeout(t);
+  }, []);
+
+  const runAeoScore = useCallback(async (domain: string) => {
+    setAeoLoading(domain);
+    setAeoResult(null);
+    setAeoError(null);
+    try {
+      const result = await crawlerEvaluate(`https://${domain}`);
+      setAeoResult(result);
+    } catch (err) {
+      setAeoError(err instanceof Error ? err.message : "AEO score failed");
+    } finally {
+      setAeoLoading(null);
+    }
   }, []);
 
   const deleteDomain = useCallback(
@@ -805,6 +831,14 @@ export default function DomainsPage() {
                       )}
                       <button
                         type="button"
+                        onClick={() => runAeoScore(row.domain)}
+                        disabled={aeoLoading !== null}
+                        className="rounded-md border border-purple-300 bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50"
+                      >
+                        {aeoLoading === row.domain ? "Scoring..." : "AEO Score"}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setDeleteConfirmDomain(row.domain)}
                         disabled={deletingDomain !== null}
                         className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -826,6 +860,59 @@ export default function DomainsPage() {
         basePath={basePath}
         onClose={() => setDrawerDomain(null)}
       />
+
+      {(aeoResult || aeoError) && (
+        <div className="mt-4 rounded-xl border border-purple-200 bg-purple-50/80 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-gray-900">AEO Score Report</h3>
+            <button
+              type="button"
+              onClick={() => { setAeoResult(null); setAeoError(null); }}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Dismiss
+            </button>
+          </div>
+          {aeoError && <p className="text-sm text-rose-600">{aeoError}</p>}
+          {aeoResult && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">{aeoResult.domain}</span>
+                <span className={}>
+                  Grade {aeoResult.grade}
+                </span>
+                <span className="text-sm text-gray-600">{aeoResult.score}/{aeoResult.max_score} pts</span>
+              </div>
+              {aeoResult.weaknesses.length === 0 ? (
+                <p className="text-xs text-emerald-700">All AEO signals detected. This page is well-positioned for AI citations.</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-gray-700">Missing signals</p>
+                    <ul className="space-y-1">
+                      {aeoResult.weaknesses.map((w) => (
+                        <li key={w} className="flex items-start gap-1 text-xs text-rose-700">
+                          <span className="mt-0.5 shrink-0">✕</span>{w}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-gray-700">Opportunities</p>
+                    <ul className="space-y-1">
+                      {aeoResult.opportunities.map((o) => (
+                        <li key={o} className="flex items-start gap-1 text-xs text-emerald-700">
+                          <span className="mt-0.5 shrink-0">→</span>{o}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {deleteConfirmDomain && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-labelledby="delete-domain-title">

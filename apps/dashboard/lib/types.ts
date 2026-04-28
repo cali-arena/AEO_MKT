@@ -173,3 +173,13 @@ export interface LeakageLatestResponse {
   last_checked_at: string;
   details_json: Record<string, unknown> | unknown[] | null;
 }
+
+export interface CrawlerEvalResult {
+  domain: string;
+  score: number;
+  max_score: number;
+  grade: string;
+  weaknesses: string[];
+  opportunities: string[];
+  summary: string;
+}

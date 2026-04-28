@@ -114,3 +114,15 @@ export async function apiFetch<T>(path: string, init?: ApiFetchInit): Promise<T>
 
   return res.json() as Promise<T>;
 }
+
+// ---------------------------------------------------------------------------
+// Crawler API — no auth required, uses /crawler/evaluate path
+// ---------------------------------------------------------------------------
+import type { CrawlerEvalResult } from "./types";
+
+export async function crawlerEvaluate(url: string): Promise<CrawlerEvalResult> {
+  return apiFetch<CrawlerEvalResult>("/crawler/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ url }),
+  });
+}
