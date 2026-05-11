@@ -6,7 +6,6 @@ import { useState } from "react";
 export default function LoginPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
-  const [tenantId, setTenantId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -14,14 +13,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     const t = token.trim();
-    const tid = tenantId.trim();
 
     if (!t) {
       setError("Token is required");
-      return;
-    }
-    if (!tid) {
-      setError("Tenant ID is required");
       return;
     }
 
@@ -33,13 +27,22 @@ export default function LoginPage() {
         body: JSON.stringify({ token: t }),
       });
 
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        tenantId?: string;
+      };
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setError((data as { error?: string }).error || "Login failed");
+        setError(data.error || "Login failed");
         return;
       }
 
-      router.push(`/tenants/${encodeURIComponent(tid)}/overview`);
+      if (!data.tenantId) {
+        setError("Login response missing tenant id");
+        return;
+      }
+
+      router.push(`/tenants/${encodeURIComponent(data.tenantId)}/overview`);
     } catch {
       setError("Request failed");
     } finally {
@@ -69,24 +72,9 @@ export default function LoginPage() {
               autoComplete="off"
               disabled={loading}
             />
-          </div>
-          <div>
-            <label
-              htmlFor="tenant"
-              className="mb-1 block text-sm font-medium text-gray-700"
-            >
-              Tenant ID
-            </label>
-            <input
-              id="tenant"
-              type="text"
-              value={tenantId}
-              onChange={(e) => setTenantId(e.target.value)}
-              placeholder="e.g. acme-corp"
-              className="w-full rounded border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              autoComplete="off"
-              disabled={loading}
-            />
+            <p className="mt-1 text-xs text-gray-500">
+              Tenant is derived from the token automatically.
+            </p>
           </div>
           {error && (
             <p className="text-sm text-red-600" role="alert">
