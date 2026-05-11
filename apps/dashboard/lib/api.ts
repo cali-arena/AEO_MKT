@@ -125,3 +125,71 @@ export async function crawlerEvaluate(url: string): Promise<CrawlerEvalResult> {
     body: JSON.stringify({ url }),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Citarion Crawler API — /crawler/* prefix, no auth required on crawler side
+// ---------------------------------------------------------------------------
+
+import type {
+  RoamStatus,
+  RoamSyncResult,
+  SourceMessagesResponse,
+  BolUploadsResponse,
+  BolUploadResult,
+  JobsResponse,
+  ShipmentsResponse,
+} from "./types";
+
+export async function fetchRoamStatus(): Promise<RoamStatus> {
+  return apiFetch<RoamStatus>("/crawler/integrations/roam/status");
+}
+
+export async function triggerRoamSync(): Promise<RoamSyncResult> {
+  return apiFetch<RoamSyncResult>("/crawler/integrations/roam/sync", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function fetchSourceMessages(limit = 20): Promise<SourceMessagesResponse> {
+  return apiFetch<SourceMessagesResponse>(
+    `/crawler/source-messages?source=roam&limit=${limit}`
+  );
+}
+
+export async function fetchBolUploads(limit = 20): Promise<BolUploadsResponse> {
+  return apiFetch<BolUploadsResponse>(`/crawler/bol/uploads?limit=${limit}`);
+}
+
+export async function uploadBol(file: File): Promise<BolUploadResult> {
+  const base = (
+    typeof process !== "undefined"
+      ? process.env.NEXT_PUBLIC_API_BASE
+      : undefined
+  ) ?? "";
+  const apiBase = base.replace(/\/$/, "");
+  if (!apiBase) {
+    throw new ApiError("NEXT_PUBLIC_API_BASE is not configured", 500);
+  }
+  const url = `${apiBase}/crawler/bol/upload`;
+  const formData = new FormData();
+  formData.append("file", file);
+  const res = await fetch(url, { method: "POST", body: formData });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const detail =
+      body && typeof body === "object" && "detail" in body
+        ? String((body as { detail: unknown }).detail)
+        : res.statusText || "Upload failed";
+    throw new ApiError(detail, res.status, body, url, "POST");
+  }
+  return res.json() as Promise<BolUploadResult>;
+}
+
+export async function fetchJobs(limit = 20): Promise<JobsResponse> {
+  return apiFetch<JobsResponse>(`/crawler/jobs?limit=${limit}`);
+}
+
+export async function fetchShipments(limit = 20): Promise<ShipmentsResponse> {
+  return apiFetch<ShipmentsResponse>(`/crawler/shipments?limit=${limit}`);
+}

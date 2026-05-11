@@ -183,3 +183,119 @@ export interface CrawlerEvalResult {
   opportunities: string[];
   summary: string;
 }
+
+// ---------------------------------------------------------------------------
+// Citarion Crawler types (source: /crawler/* endpoints)
+// ---------------------------------------------------------------------------
+
+export interface RoamSyncRun {
+  id: number;
+  source: string;
+  worker: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  processed: number;
+  skipped: number;
+  failed: number;
+  checkpoint: string | null;
+  error: string | null;
+}
+
+export interface RoamStatus {
+  configured: boolean;
+  base_url: string | null;
+  workspace_id: string | null;
+  webhook_secret_set: boolean;
+  poll_interval_seconds?: number;
+  last_run: RoamSyncRun | null;
+}
+
+export interface SourceMessage {
+  id: string | number;
+  source_system: string;
+  source_id: string;
+  workspace_id: string;
+  chat_id: string | null;
+  received_at: string;
+  processed: number;
+  payload_keys?: string[];
+}
+
+export interface SourceMessagesResponse {
+  source: string;
+  count: number;
+  messages: SourceMessage[];
+}
+
+export interface BolUpload {
+  id: string;
+  filename: string;
+  mime_type: string | null;
+  file_size: number;
+  status: string;
+  created_at: string;
+  extracted_chars: number;
+}
+
+export interface BolUploadsResponse {
+  count: number;
+  uploads: BolUpload[];
+}
+
+export interface ParsedJob {
+  id: number;
+  source_type: string;
+  source_ref: string;
+  shipment_reference: string | null;
+  carrier_name: string | null;
+  pickup_date: string | null;
+  delivery_date: string | null;
+  origin: string | null;
+  destination: string | null;
+  confidence_score: number;
+  parsing_status: string;
+  parsed_at: string;
+}
+
+export interface JobsResponse {
+  count: number;
+  jobs: ParsedJob[];
+}
+
+export interface Shipment {
+  id: number;
+  shipment_reference: string;
+  carrier_name: string | null;
+  pickup_date: string | null;
+  delivery_date: string | null;
+  origin: string | null;
+  destination: string | null;
+  job_id: number;
+  created_at: string;
+}
+
+export interface ShipmentsResponse {
+  count: number;
+  shipments: Shipment[];
+}
+
+export interface BolUploadResult {
+  upload_id: string;
+  filename: string;
+  status: string;
+  file_size: number;
+  message: string;
+}
+
+export interface RoamSyncResult {
+  started_at: string;
+  finished_at: string | null;
+  chats_seen: number;
+  chats_synced: string[];
+  pages_fetched: number;
+  processed: number;
+  skipped: number;
+  failed: number;
+  errors: string[];
+}

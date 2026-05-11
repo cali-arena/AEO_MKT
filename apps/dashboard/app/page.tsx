@@ -4,12 +4,18 @@ export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <h1 className="text-2xl font-bold">AI MKT Dashboard</h1>
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-wrap justify-center">
         <Link
           href="/login"
           className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
         >
           Log in
+        </Link>
+        <Link
+          href="/integrations"
+          className="rounded bg-slate-700 px-4 py-2 text-white hover:bg-slate-600"
+        >
+          Integrations
         </Link>
         <Link
           href="/health"
